@@ -1,0 +1,10 @@
+browsergym-webarena==0.10.2
+libwebarena==0.0.3
+openai
+torch
+transformers
+sentence-transformers
+einops
+anthropic
+numpy
+pillow

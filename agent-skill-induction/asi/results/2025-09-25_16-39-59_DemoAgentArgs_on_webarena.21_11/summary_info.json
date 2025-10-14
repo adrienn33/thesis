@@ -1,0 +1,22 @@
+{
+    "n_steps": 3,
+    "cum_reward": 0.0,
+    "cum_raw_reward": 0,
+    "err_msg": "Exception uncaught by agent or environment in task webarena.21.\nKeyboardInterrupt:\nEarly termination??",
+    "stack_trace": null,
+    "stats.cum_steps": 4,
+    "stats.cum_n_token_last_action": 527,
+    "stats.max_n_token_last_action": 337,
+    "stats.cum_n_token_last_action_error": 31,
+    "stats.max_n_token_last_action_error": 16,
+    "stats.cum_n_token_axtree_txt": 17831,
+    "stats.max_n_token_axtree_txt": 7021,
+    "stats.cum_n_token_pruned_html": 160567,
+    "stats.max_n_token_pruned_html": 55981,
+    "stats.cum_step_elapsed": 12.85509443283081,
+    "stats.max_step_elapsed": 6.865685939788818,
+    "stats.cum_agent_elapsed": 10.665546178817749,
+    "stats.max_agent_elapsed": 4.220077037811279,
+    "terminated": null,
+    "truncated": null
+}

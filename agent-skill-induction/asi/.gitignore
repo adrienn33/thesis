@@ -1,0 +1,14 @@
+node_modules/
+**/tmp/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+**/awm_results/**
+demo_agent/outputs
+
+# Environment variables (API keys)
+.env
+
+# Saved task runs (local storage)
+saved_runs/
