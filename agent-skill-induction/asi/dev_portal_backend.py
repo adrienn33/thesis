@@ -72,6 +72,19 @@ from client import MCPClient, MCPServerConfig
 app = Flask(__name__)
 CORS(app)
 
+# Task ID parser (matching run_online.py behavior)
+def parse_task_ids(task_id_str: str) -> list[str]:
+    """Parse task ID string like '21,22,24-26' into list ['21','22','24','25','26']"""
+    chunks = [c.strip() for c in task_id_str.split(",")]
+    task_id_list = []
+    for c in chunks:
+        if "-" in c:
+            s, e = [int(n.strip()) for n in c.split("-")]
+            task_id_list.extend([str(i) for i in range(s, e+1)])
+        else:
+            task_id_list.append(c.strip())
+    return task_id_list
+
 # MCP server configurations
 MCP_SERVER_CONFIGS = {
     'magento-review-server': MCPServerConfig(
@@ -445,6 +458,13 @@ def get_task_results(result_path):
         terminated = summary.get('terminated', False)
         truncated = summary.get('truncated', False)
         
+        # Read raw output if available
+        raw_output = None
+        raw_output_file = results_dir / 'raw_output.txt'
+        if raw_output_file.exists():
+            with open(raw_output_file, 'r') as f:
+                raw_output = f.read()
+        
         result = {
             'success': success,
             'reward': summary.get('cum_reward', 0),
@@ -466,6 +486,7 @@ def get_task_results(result_path):
             'actions': agent_actions,
             'openai_evals': openai_evals,
             'screenshots': screenshots,
+            'raw_output': raw_output,
             'result_dir': results_dir.name  # Use the actual directory name we found
         }
         
@@ -529,7 +550,7 @@ def set_env():
 
 @app.route('/api/saved-runs', methods=['GET'])
 def get_saved_runs():
-    """List all saved task runs"""
+    """List all saved task runs (including batch runs)"""
     try:
         saved_runs_dir = Path(__file__).parent / 'saved_runs'
         saved_runs_dir.mkdir(exist_ok=True)
@@ -537,30 +558,40 @@ def get_saved_runs():
         runs = []
         for run_dir in saved_runs_dir.iterdir():
             if run_dir.is_dir():
-                metadata_file = run_dir / 'metadata.json'
-                summary_file = run_dir / 'summary_info.json'
-                
-                if metadata_file.exists() and summary_file.exists():
-                    with open(metadata_file, 'r') as f:
+                # Check for batch metadata first
+                batch_metadata_file = run_dir / 'batch_metadata.json'
+                if batch_metadata_file.exists():
+                    with open(batch_metadata_file, 'r') as f:
                         metadata = json.load(f)
-                    with open(summary_file, 'r') as f:
-                        summary = json.load(f)
+                        metadata['type'] = 'batch'
+                        runs.append(metadata)
+                else:
+                    # Regular run metadata
+                    metadata_file = run_dir / 'metadata.json'
+                    summary_file = run_dir / 'summary_info.json'
                     
-                    runs.append({
-                        'id': run_dir.name,
-                        'name': metadata.get('name', run_dir.name),
-                        'task_id': metadata.get('task_id'),
-                        'timestamp': metadata.get('timestamp'),
-                        'tags': metadata.get('tags', []),
-                        'notes': metadata.get('notes', ''),
-                        'success': summary.get('cum_reward', 0) > 0,
-                        'reward': summary.get('cum_reward', 0),
-                        'n_steps': summary.get('n_steps', 0),
-                        'truncated': summary.get('truncated', False)
-                    })
+                    if metadata_file.exists() and summary_file.exists():
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                        with open(summary_file, 'r') as f:
+                            summary = json.load(f)
+                        
+                        runs.append({
+                            'id': run_dir.name,
+                            'type': 'single',
+                            'name': metadata.get('name', run_dir.name),
+                            'task_id': metadata.get('task_id'),
+                            'timestamp': metadata.get('timestamp'),
+                            'tags': metadata.get('tags', []),
+                            'notes': metadata.get('notes', ''),
+                            'success': summary.get('cum_reward', 0) > 0,
+                            'reward': summary.get('cum_reward', 0),
+                            'n_steps': summary.get('n_steps', 0),
+                            'truncated': summary.get('truncated', False)
+                        })
         
         # Sort by timestamp, most recent first
-        runs.sort(key=lambda x: x['timestamp'], reverse=True)
+        runs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         return jsonify({'runs': runs})
     except Exception as e:
         logger.error(f"Error listing saved runs: {e}")
@@ -634,6 +665,28 @@ def delete_saved_run(run_id):
         logger.error(f"Error deleting saved run: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/saved-runs/<run_id>/batch', methods=['GET'])
+def get_batch_run_details(run_id):
+    """Get full batch run details including all task results"""
+    try:
+        saved_runs_dir = Path(__file__).parent / 'saved_runs'
+        batch_dir = saved_runs_dir / run_id
+        
+        if not batch_dir.exists():
+            return jsonify({'error': 'Batch run not found'}), 404
+        
+        batch_metadata_file = batch_dir / 'batch_metadata.json'
+        if not batch_metadata_file.exists():
+            return jsonify({'error': 'Not a batch run'}), 400
+        
+        with open(batch_metadata_file, 'r') as f:
+            batch_data = json.load(f)
+        
+        return jsonify(batch_data)
+    except Exception as e:
+        logger.error(f"Error loading batch run details: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/saved-runs/<run_id>/results', methods=['GET'])
 def get_saved_run_results(run_id):
     """Get detailed results for a saved run (same format as /api/task-results)"""
@@ -643,6 +696,12 @@ def get_saved_run_results(run_id):
         
         if not results_dir.exists():
             return jsonify({'error': f'Saved run not found: {run_id}'}), 404
+        
+        # Check if this is a batch run
+        batch_metadata_file = results_dir / 'batch_metadata.json'
+        if batch_metadata_file.exists():
+            # This is a batch run, redirect to batch endpoint
+            return get_batch_run_details(run_id)
         
         # Read metadata
         metadata_file = results_dir / 'metadata.json'
@@ -765,6 +824,171 @@ def get_saved_run_screenshot(run_id, filename):
     except Exception as e:
         logger.error(f"Error serving saved run screenshot: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/run-batch-tasks', methods=['POST'])
+def run_batch_tasks():
+    """Run multiple WebArena tasks and stream progress updates"""
+    data = request.json
+    task_ids_str = data.get('task_ids')
+    website = data.get('website', 'shopping')
+    headless = data.get('headless', True)
+    use_mcp = data.get('use_mcp', True)
+    
+    if not task_ids_str:
+        return jsonify({'error': 'task_ids is required'}), 400
+    
+    try:
+        task_ids = parse_task_ids(task_ids_str)
+    except Exception as e:
+        return jsonify({'error': f'Invalid task_ids format: {str(e)}'}), 400
+    
+    def generate():
+        import time
+        batch_results = []
+        
+        yield f"data: {json.dumps({'type': 'batch_start', 'total_tasks': len(task_ids), 'task_ids': task_ids})}\n\n"
+        
+        for idx, task_id in enumerate(task_ids):
+            task_num = idx + 1
+            yield f"data: {json.dumps({'type': 'task_start', 'task_id': task_id, 'task_num': task_num, 'total': len(task_ids)})}\n\n"
+            
+            # Determine config file
+            if use_mcp:
+                mcp_config_file = f"config_files/{task_id}-mcp-container.json"
+                if os.path.exists(mcp_config_file):
+                    config_file = mcp_config_file
+                else:
+                    config_file = f"config_files/{task_id}.json"
+            else:
+                config_file = f"config_files/{task_id}.json"
+            
+            if not os.path.exists(config_file):
+                yield f"data: {json.dumps({'type': 'task_error', 'task_id': task_id, 'error': f'Config file not found: {config_file}'})}\n\n"
+                batch_results.append({'task_id': task_id, 'status': 'error', 'error': 'Config not found'})
+                continue
+            
+            cmd = [
+                'python3', 'run_demo.py',
+                '--task_name', f'webarena.{task_id}',
+                '--websites', website
+            ]
+            
+            if use_mcp:
+                cmd.extend(['--mcp_config', config_file])
+            
+            if headless:
+                cmd.append('--headless')
+            
+            # Run task
+            start_time = time.time()
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=os.environ.copy()
+            )
+            
+            result_dir = None
+            output_lines = []
+            prev_line = ''
+            for line in iter(proc.stdout.readline, ''):
+                if line:
+                    output_lines.append(line)
+                    # Extract result directory (two-line format)
+                    if 'Running experiment' in prev_line and 'results/' in line:
+                        parts = line.strip().split('results/')
+                        if len(parts) > 1:
+                            result_dir = parts[1].strip()
+                    # Also handle single-line format
+                    elif 'Running experiment' in line and 'results/' in line:
+                        parts = line.split('results/')
+                        if len(parts) > 1:
+                            result_dir = parts[1].strip().split()[0]
+                    
+                    prev_line = line
+                    # Stream output
+                    yield f"data: {json.dumps({'type': 'task_output', 'task_id': task_id, 'line': line.rstrip()})}\n\n"
+            
+            proc.stdout.close()
+            return_code = proc.wait()
+            elapsed = time.time() - start_time
+            
+            success = return_code == 0
+            task_result = {
+                'task_id': task_id,
+                'status': 'success' if success else 'failed',
+                'result_dir': result_dir,
+                'elapsed_time': round(elapsed, 2),
+                'return_code': return_code
+            }
+            
+            # Try to get summary info and save raw output to result dir
+            # Use symlink directory (webarena.{task_id}) which always exists
+            symlink_dir = Path(__file__).parent / 'results' / f'webarena.{task_id}'
+            try:
+                # Save raw output to the symlink directory first (guaranteed to work)
+                raw_output_path = symlink_dir / 'raw_output.txt'
+                with open(raw_output_path, 'w') as f:
+                    f.write(''.join(output_lines))
+                logger.info(f"Saved raw output for task {task_id} to {raw_output_path}")
+                
+                # Read summary from symlink directory
+                summary_path = symlink_dir / 'summary_info.json'
+                if summary_path.exists():
+                    with open(summary_path, 'r') as f:
+                        summary = json.load(f)
+                        task_result['n_steps'] = summary.get('n_steps', 0)
+                        task_result['reward'] = summary.get('cum_reward', 0)
+                
+                # Also try to save to timestamped directory if we extracted it
+                if result_dir:
+                    timestamped_path = Path(__file__).parent / 'results' / result_dir
+                    if timestamped_path.exists() and timestamped_path != symlink_dir:
+                        timestamped_output = timestamped_path / 'raw_output.txt'
+                        with open(timestamped_output, 'w') as f:
+                            f.write(''.join(output_lines))
+                        logger.info(f"Also saved raw output to timestamped dir: {timestamped_output}")
+                
+            except Exception as e:
+                logger.error(f"Error processing results for task {task_id}: {e}")
+            
+            batch_results.append(task_result)
+            yield f"data: {json.dumps({'type': 'task_complete', **task_result})}\n\n"
+        
+        # Send batch summary
+        success_count = sum(1 for r in batch_results if r['status'] == 'success')
+        
+        # Auto-save batch run
+        batch_name = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_tasks_{'_'.join(task_ids)}"
+        saved_runs_dir = Path(__file__).parent / 'saved_runs'
+        saved_runs_dir.mkdir(exist_ok=True)
+        
+        batch_dir = saved_runs_dir / batch_name
+        batch_dir.mkdir(exist_ok=True)
+        
+        # Save batch metadata
+        batch_metadata = {
+            'id': batch_name,
+            'timestamp': datetime.now().isoformat(),
+            'task_ids': task_ids,
+            'results': batch_results,
+            'success_count': success_count,
+            'total': len(task_ids),
+            'name': f"Batch {'-'.join(task_ids[:3])}{'...' if len(task_ids) > 3 else ''}",
+            'tags': ['batch', 'auto-saved'],
+            'notes': f"Auto-saved batch run of tasks {', '.join(task_ids)}"
+        }
+        
+        with open(batch_dir / 'batch_metadata.json', 'w') as f:
+            json.dump(batch_metadata, f, indent=2)
+        
+        logger.info(f"Auto-saved batch run to {batch_dir}")
+        
+        yield f"data: {json.dumps({'type': 'batch_complete', 'results': batch_results, 'success_count': success_count, 'total': len(task_ids), 'saved_to': batch_name})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     print("=" * 60)

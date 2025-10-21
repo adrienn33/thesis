@@ -1013,6 +1013,14 @@ function TaskRunnerTab() {
   const [showSavedRuns, setShowSavedRuns] = useState(false)
   const [savedRuns, setSavedRuns] = useState([])
   const [loadingSavedRuns, setLoadingSavedRuns] = useState(false)
+  
+  // Batch mode state
+  const [batchMode, setBatchMode] = useState(false)
+  const [batchTaskIds, setBatchTaskIds] = useState('')
+  const [batchResults, setBatchResults] = useState([])
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 })
+  const [showBatchOutput, setShowBatchOutput] = useState(false)
+  const [selectedBatchTask, setSelectedBatchTask] = useState(null)
 
   useEffect(() => {
     fetchTasks()
@@ -1105,8 +1113,100 @@ function TaskRunnerTab() {
       setDetailedResults(data)
       setSelectedStep(0)
       setShowOutput(false)
+      
+      // Set raw output if available
+      if (data.raw_output) {
+        setOutput(data.raw_output)
+      } else {
+        setOutput('') // Clear previous output
+      }
     } catch (err) {
       console.error('Failed to fetch detailed results:', err)
+    }
+  }
+
+  const runBatchTasks = async () => {
+    if (!batchTaskIds.trim()) {
+      alert('Please enter task IDs')
+      return
+    }
+
+    setRunning(true)
+    setOutput('')
+    setBatchResults([])
+    setBatchProgress({ current: 0, total: 0 })
+    setShowBatchOutput(true)
+
+    try {
+      const res = await fetch('http://localhost:5000/api/run-batch-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_ids: batchTaskIds,
+          website: website,
+          headless: headless,
+          use_mcp: useMcp
+        })
+      })
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const text = decoder.decode(value)
+        const lines = text.split('\n')
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              switch (data.type) {
+                case 'batch_start':
+                  setBatchProgress({ current: 0, total: data.total_tasks })
+                  setBatchResults(data.task_ids.map(id => ({ task_id: id, status: 'queued' })))
+                  break
+                
+                case 'task_start':
+                  setBatchProgress({ current: data.task_num, total: data.total })
+                  setBatchResults(prev => prev.map(r => 
+                    r.task_id === data.task_id ? { ...r, status: 'running' } : r
+                  ))
+                  break
+                
+                case 'task_output':
+                  setOutput(prev => prev + data.line + '\n')
+                  break
+                
+                case 'task_complete':
+                  setBatchResults(prev => prev.map(r => 
+                    r.task_id === data.task_id ? { ...r, ...data } : r
+                  ))
+                  break
+                
+                case 'task_error':
+                  setBatchResults(prev => prev.map(r => 
+                    r.task_id === data.task_id ? { ...r, status: 'error', error: data.error } : r
+                  ))
+                  break
+                
+                case 'batch_complete':
+                  setBatchResults(data.results)
+                  break
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e)
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setOutput(prev => prev + `\nError: ${err.message}`)
+    } finally {
+      setRunning(false)
     }
   }
 
@@ -1165,7 +1265,7 @@ function TaskRunnerTab() {
     }
   }
 
-  const loadSavedRun = async (runId) => {
+  const loadSavedRun = async (runId, runType) => {
     try {
       const res = await fetch(`http://localhost:5000/api/saved-runs/${runId}/results`)
       const data = await res.json()
@@ -1175,18 +1275,32 @@ function TaskRunnerTab() {
         return
       }
       
-      console.log('Loaded saved run data:', { hasRawOutput: !!data.raw_output, rawOutputLength: data.raw_output?.length })
-      
-      setDetailedResults(data)
-      setSelectedStep(0)
-      setShowOutput(false)
-      setShowSavedRuns(false)
-      // Set raw output so "View Raw Output" button works
-      if (data.raw_output) {
-        console.log('Setting output from saved run')
-        setOutput(data.raw_output)
+      // Check if this is a batch run
+      if (data.results && Array.isArray(data.results)) {
+        // This is a batch run - load batch view
+        console.log('Loading batch run:', data)
+        setBatchMode(true)
+        setBatchResults(data.results)
+        setBatchTaskIds(data.task_ids.join(','))
+        setShowSavedRuns(false)
+        setShowOutput(false)
       } else {
-        console.warn('No raw_output in saved run data')
+        // Regular single run
+        console.log('Loaded saved run data:', { hasRawOutput: !!data.raw_output, rawOutputLength: data.raw_output?.length })
+        
+        setDetailedResults(data)
+        setSelectedStep(0)
+        setShowOutput(false)
+        setShowSavedRuns(false)
+        setBatchMode(false)
+        
+        // Set raw output so "View Raw Output" button works
+        if (data.raw_output) {
+          console.log('Setting output from saved run')
+          setOutput(data.raw_output)
+        } else {
+          console.warn('No raw_output in saved run data')
+        }
       }
     } catch (err) {
       console.error('Failed to load saved run:', err)
@@ -1233,19 +1347,40 @@ function TaskRunnerTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Task Configuration
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Task Configuration
+              </h3>
+              
+              {/* Batch Mode Toggle */}
+              <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                <button
+                  onClick={() => setBatchMode(false)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${!batchMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  disabled={running}
+                >
+                  Single
+                </button>
+                <button
+                  onClick={() => setBatchMode(true)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${batchMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  disabled={running}
+                >
+                  Batch
+                </button>
+              </div>
+            </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Select Task
-                </label>
+              {!batchMode ? (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Select Task
+                  </label>
                 <select
                   value={selectedTask}
                   onChange={(e) => setSelectedTask(e.target.value)}
@@ -1259,17 +1394,36 @@ function TaskRunnerTab() {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {selectedTaskInfo && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-blue-900 mb-1">Task Intent:</p>
-                  <p className="text-sm text-blue-700">{selectedTaskInfo.intent}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                      {selectedTaskInfo.sites.join(', ')}
-                    </span>
+                
+                {selectedTaskInfo && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                    <p className="text-sm font-medium text-blue-900 mb-1">Task Intent:</p>
+                    <p className="text-sm text-blue-700">{selectedTaskInfo.intent}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                        {selectedTaskInfo.sites.join(', ')}
+                      </span>
+                    </div>
                   </div>
+                )}
+              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Task IDs
+                    <span className="text-slate-500 text-xs ml-2">(e.g., "21,22,24-26")</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={batchTaskIds}
+                    onChange={(e) => setBatchTaskIds(e.target.value)}
+                    placeholder="21,22,24-26"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900"
+                    disabled={running}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Enter task IDs separated by commas. Use ranges like "24-26" for consecutive tasks.
+                  </p>
                 </div>
               )}
 
@@ -1313,8 +1467,8 @@ function TaskRunnerTab() {
               </div>
 
               <button
-                onClick={runTask}
-                disabled={running || !selectedTask}
+                onClick={batchMode ? runBatchTasks : runTask}
+                disabled={running || (!batchMode && !selectedTask) || (batchMode && !batchTaskIds.trim())}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
               >
                 {running ? (
@@ -1323,7 +1477,7 @@ function TaskRunnerTab() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Running Task...
+                    {batchMode ? `Running (${batchProgress.current}/${batchProgress.total})...` : 'Running Task...'}
                   </>
                 ) : (
                   <>
@@ -1331,12 +1485,114 @@ function TaskRunnerTab() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Execute Task
+                    {batchMode ? 'Run Batch' : 'Execute Task'}
                   </>
                 )}
               </button>
             </div>
           </div>
+
+          {/* Batch Results Table */}
+          {batchMode && batchResults.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Batch Progress
+                {!running && (
+                  <span className="ml-auto text-sm font-normal text-slate-600">
+                    {batchResults.filter(r => r.status === 'success').length}/{batchResults.length} passed
+                  </span>
+                )}
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Task ID</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Steps</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Time</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchResults.map((result) => (
+                      <tr key={result.task_id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-sm font-medium text-slate-900">
+                            {result.task_id}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {result.status === 'success' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              Pass
+                            </span>
+                          )}
+                          {result.status === 'failed' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              Fail
+                            </span>
+                          )}
+                          {result.status === 'running' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                              <div className="w-3 h-3 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
+                              Running
+                            </span>
+                          )}
+                          {result.status === 'queued' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                              </svg>
+                              Queued
+                            </span>
+                          )}
+                          {result.status === 'error' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Error
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">
+                          {result.n_steps !== undefined ? result.n_steps : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">
+                          {result.elapsed_time ? `${result.elapsed_time}s` : '-'}
+                        </td>
+                        <td className="py-3 px-4">
+                          {result.result_dir && (
+                            <button
+                              onClick={() => {
+                                fetchDetailedResults(result.result_dir)
+                                setBatchMode(false)
+                                setShowOutput(false)
+                              }}
+                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            >
+                              View
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {detailedResults && !showOutput ? (
             <div className="space-y-6">
@@ -1829,18 +2085,32 @@ function TaskRunnerTab() {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
-                            Task {run.task_id}
-                          </span>
-                          {run.success ? (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">Success</span>
+                          {run.type === 'batch' ? (
+                            <>
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
+                                Batch ({run.task_ids?.length || 0} tasks)
+                              </span>
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                                {run.success_count}/{run.total} passed
+                              </span>
+                            </>
                           ) : (
-                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">Failed</span>
+                            <>
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                                Task {run.task_id}
+                              </span>
+                              {run.success ? (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">Success</span>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">Failed</span>
+                              )}
+                            </>
                           )}
                         </div>
                         <h4 className="font-semibold text-slate-900 mb-1">{run.name}</h4>
                         <p className="text-xs text-slate-500">
-                          {new Date(run.timestamp).toLocaleString()} • {run.n_steps} steps • Reward: {run.reward}
+                          {new Date(run.timestamp).toLocaleString()}
+                          {run.type !== 'batch' && ` • ${run.n_steps} steps • Reward: ${run.reward}`}
                         </p>
                       </div>
                     </div>

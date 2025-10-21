@@ -70,7 +70,7 @@ def induce_workflows() -> list[str]:
         user_messages = [msg for msg in messages if msg["role"] == "user"]
         for i in range(args.num_responses):
             response = client.messages.create(
-                model="claude-haiku-4-5",
+                model="claude-3-haiku-20240307",
                 max_tokens=4096,
                 temperature=args.temperature,
                 system=system_msg,
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.model == "claude":
-        args.model = "claude-haiku-4-5"
+        args.model = "claude-3-haiku-20240307"
     args.model = args.model.replace("litellm", "openai")
 
     if args.write_workflow_path is None:
