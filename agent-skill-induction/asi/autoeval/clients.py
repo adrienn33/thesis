@@ -10,7 +10,7 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 
 class LM_Client:
-    def __init__(self, model_name: str = "claude-3-haiku-20240307") -> None:
+    def __init__(self, model_name: str = "claude-haiku-4-5") -> None:
         self.model_name = model_name
 
     def chat(self, messages, json_mode: bool = False):
@@ -138,7 +138,7 @@ class Claude_Vision_Client:
 
 
 CLIENT_DICT = {
-    "claude-3-haiku-20240307": LM_Client,
+    "claude-haiku-4-5": LM_Client,
     "claude-3-5-sonnet-20241022": Claude_Vision_Client,
     "gpt-3.5-turbo": LM_Client,
     "gpt-4": LM_Client,

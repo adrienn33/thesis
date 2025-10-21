@@ -455,7 +455,9 @@ def get_task_results(result_path):
             'stats': {
                 'total_time': summary.get('stats.cum_step_elapsed', 0),
                 'agent_time': summary.get('stats.cum_agent_elapsed', 0),
-                'tokens_used': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0),
+                'tokens_used': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0) + summary.get('stats.cum_n_token_last_action', 0),
+                'input_tokens': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0),
+                'output_tokens': summary.get('stats.cum_n_token_last_action', 0),
                 'max_tokens_per_step': max(
                     summary.get('stats.max_n_token_axtree_txt', 0),
                     summary.get('stats.max_n_token_pruned_html', 0)
@@ -727,7 +729,9 @@ def get_saved_run_results(run_id):
             'stats': {
                 'total_time': summary.get('stats.cum_step_elapsed', 0),
                 'agent_time': summary.get('stats.cum_agent_elapsed', 0),
-                'tokens_used': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0),
+                'tokens_used': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0) + summary.get('stats.cum_n_token_last_action', 0),
+                'input_tokens': summary.get('stats.cum_n_token_axtree_txt', 0) + summary.get('stats.cum_n_token_pruned_html', 0),
+                'output_tokens': summary.get('stats.cum_n_token_last_action', 0),
                 'max_tokens_per_step': max(
                     summary.get('stats.max_n_token_axtree_txt', 0),
                     summary.get('stats.max_n_token_pruned_html', 0)

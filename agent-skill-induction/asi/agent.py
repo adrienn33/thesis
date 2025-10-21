@@ -350,6 +350,16 @@ def {func_name}({param_str}):
     
     IMPORTANT: If MCP tool functions are available (functions starting with `magento_review_server_`, `magento_product_server_`, or similar prefixes), you MUST prioritize using them over browser interactions when they can accomplish your goal. MCP tools provide direct database access and are more reliable than browser scraping.
     
+    CRITICAL: When calling functions that return data (especially MCP tools like magento_review_server_* or magento_product_server_*), you MUST store the return value in a variable. In Python, if you call a function without assignment, the return value is discarded and lost forever. Example:
+    ```
+    reviews = magento_review_server_get_product_reviews("PRODUCT_SKU")
+    for review in reviews:
+        if "keyword" in review["detail"].lower():
+            send_msg_to_user("Found: " + review["nickname"])
+    ```
+    WRONG: magento_review_server_get_product_reviews("SKU")  # ← Data is lost!
+    RIGHT: reviews = magento_review_server_get_product_reviews("SKU")  # ← Data is captured
+    
     Here are examples of actions with chain-of-thought reasoning:
 
     I now need to click on the Submit button to send the form. I will use the click action on the button, which has bid 12.

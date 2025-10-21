@@ -1597,8 +1597,13 @@ function TaskRunnerTab() {
                     <div className="text-xl font-bold text-slate-900">{detailedResults.stats.tokens_used.toLocaleString()}</div>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-3">
-                    <div className="text-xs text-slate-600 mb-1">Est. Cost (Haiku)</div>
-                    <div className="text-xl font-bold text-slate-900">${((detailedResults.stats.tokens_used / 1000000) * 1.25).toFixed(4)}</div>
+                    <div className="text-xs text-slate-600 mb-1">Est. Cost (Haiku 4.5)</div>
+                    <div className="text-xl font-bold text-slate-900">
+                      ${(
+                        (detailedResults.stats.input_tokens / 1000000) * 1.00 + 
+                        (detailedResults.stats.output_tokens / 1000000) * 5.00
+                      ).toFixed(4)}
+                    </div>
                   </div>
                 </div>
               </div>

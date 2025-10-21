@@ -174,7 +174,7 @@ if __name__ == "__main__":
                         help="Path to the result directory, e.g., 'webarena.0'.")
     # autoeval
     parser.add_argument("--model", type=str, default="claude-3-5-sonnet-20241022",
-                        choices=["claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "gpt-4o", "gpt-4o-2024-05-13"])
+                        choices=["claude-haiku-4-5", "claude-3-5-sonnet-20241022", "gpt-4o", "gpt-4o-2024-05-13"])
     parser.add_argument("--prompt", type=str, default="vision",
                         choices=["text", "vision"])
 
