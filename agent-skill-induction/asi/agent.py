@@ -347,6 +347,9 @@ def {func_name}({param_str}):
     {self.action_set.describe(with_long_description=True, with_examples=True)}
 
     When high-level functions such as `get_driving_time` or 'book_flights` are available, please prioritize using them.
+    
+    IMPORTANT: If MCP tool functions are available (functions starting with `magento_review_server_`, `magento_product_server_`, or similar prefixes), you MUST prioritize using them over browser interactions when they can accomplish your goal. MCP tools provide direct database access and are more reliable than browser scraping.
+    
     Here are examples of actions with chain-of-thought reasoning:
 
     I now need to click on the Submit button to send the form. I will use the click action on the button, which has bid 12.

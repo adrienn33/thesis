@@ -41,10 +41,26 @@ def execute_python_code(
     if hasattr(__main__, '_mcp_tool_wrappers'):
         globals['_mcp_tool_wrappers'] = __main__._mcp_tool_wrappers
     
+    # Define _call_mcp_tool helper function and add it to both __main__ and exec globals
+    # This is needed because MCP wrapper functions defined in __main__ need to access it
+    def _call_mcp_tool(tool_name, **kwargs):
+        """Execute an MCP tool by name"""
+        if not hasattr(__main__, '_action_set_mcp_manager'):
+            raise RuntimeError("MCP manager not available in execution context")
+        tools = __main__._action_set_mcp_manager.get_all_tools()
+        if tool_name not in tools:
+            raise NameError(f"MCP tool '{tool_name}' not found")
+        return tools[tool_name](**kwargs)
+    
+    # Add to __main__ so wrapper functions can find it
+    __main__._call_mcp_tool = _call_mcp_tool
+    # Also add to exec globals for direct calls
+    globals['_call_mcp_tool'] = _call_mcp_tool
+    
     # Add MCP tool functions to execution context
     main_globals = vars(__main__)
     for name, obj in main_globals.items():
-        if callable(obj) and ('magento_review_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
+        if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
             globals[name] = obj
 
     exec(code, globals)

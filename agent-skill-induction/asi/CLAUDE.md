@@ -49,6 +49,21 @@ docker cp mcp_servers/magento_review_data.py shopping:/tmp/magento_review_data.p
 docker cp mcp_servers/magento_products.py shopping:/tmp/magento_products.py
 ```
 
+### Adding New MCP Servers
+
+When adding a new MCP server, you MUST update `patch_with_custom_exec.py` to make the tools available in the agent's Python execution environment:
+
+1. **Create your MCP server** in `mcp_servers/your_server.py`
+2. **Register in agent.py** (add to MCP server configuration)
+3. **Update patch_with_custom_exec.py** line ~47:
+   ```python
+   if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'your_server_prefix' in name):
+   ```
+   
+**Why this is needed:** MCP tools are connected at the protocol level, but they must be explicitly injected into the agent's `exec()` namespace to be callable as Python functions.
+
+**Symptom if you forget:** Agent will see tools in its action space but get `NameError: name 'your_tool_name' is not defined` when trying to call them.
+
 ## Testing
 
 ### Quick Test (Smoke Test)
