@@ -453,8 +453,10 @@ def get_task_results(result_path):
                 'filename': screenshot_file.name
             })
         
-        # Calculate success
-        success = summary.get('cum_reward', 0) > 0
+        # Calculate success based on reward
+        # Success: reward == 1, Failed: reward == 0, Error: execution failed
+        reward = summary.get('cum_reward', 0)
+        success = reward >= 1
         terminated = summary.get('terminated', False)
         truncated = summary.get('truncated', False)
         
@@ -576,6 +578,7 @@ def get_saved_runs():
                         with open(summary_file, 'r') as f:
                             summary = json.load(f)
                         
+                        reward = summary.get('cum_reward', 0)
                         runs.append({
                             'id': run_dir.name,
                             'type': 'single',
@@ -584,8 +587,9 @@ def get_saved_runs():
                             'timestamp': metadata.get('timestamp'),
                             'tags': metadata.get('tags', []),
                             'notes': metadata.get('notes', ''),
-                            'success': summary.get('cum_reward', 0) > 0,
-                            'reward': summary.get('cum_reward', 0),
+                            'success': reward >= 1,
+                            'error': summary.get('err_msg'),
+                            'reward': reward,
                             'n_steps': summary.get('n_steps', 0),
                             'truncated': summary.get('truncated', False)
                         })
@@ -773,8 +777,10 @@ def get_saved_run_results(run_id):
                 'filename': screenshot_file.name
             })
         
-        # Calculate success
-        success = summary.get('cum_reward', 0) > 0
+        # Calculate success based on reward
+        # Success: reward == 1, Failed: reward == 0, Error: execution failed
+        reward = summary.get('cum_reward', 0)
+        success = reward >= 1
         terminated = summary.get('terminated', False)
         truncated = summary.get('truncated', False)
         
@@ -915,10 +921,13 @@ def run_batch_tasks():
             return_code = proc.wait()
             elapsed = time.time() - start_time
             
-            success = return_code == 0
+            # Determine status based on return code and reward
+            # Error: execution failed (return_code != 0)
+            # Success: reward == 1
+            # Failed: reward == 0
             task_result = {
                 'task_id': task_id,
-                'status': 'success' if success else 'failed',
+                'status': 'error' if return_code != 0 else 'unknown',
                 'result_dir': result_dir,
                 'elapsed_time': round(elapsed, 2),
                 'return_code': return_code
@@ -940,7 +949,12 @@ def run_batch_tasks():
                     with open(summary_path, 'r') as f:
                         summary = json.load(f)
                         task_result['n_steps'] = summary.get('n_steps', 0)
-                        task_result['reward'] = summary.get('cum_reward', 0)
+                        reward = summary.get('cum_reward', 0)
+                        task_result['reward'] = reward
+                        
+                        # Update status based on reward if execution succeeded
+                        if return_code == 0:
+                            task_result['status'] = 'success' if reward >= 1 else 'failed'
                 
                 # Also try to save to timestamped directory if we extracted it
                 if result_dir:

@@ -1558,7 +1558,7 @@ function TaskRunnerTab() {
                             </span>
                           )}
                           {result.status === 'error' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded">
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
@@ -1773,15 +1773,23 @@ function TaskRunnerTab() {
             <>
               {/* Status Card */}
               <div className={`rounded-2xl border-2 p-6 shadow-lg ${
-                taskResult.success
+                detailedResults.success
                   ? 'bg-green-50 border-green-200'
+                  : detailedResults.error
+                  ? 'bg-slate-50 border-slate-200'
                   : 'bg-red-50 border-red-200'
               }`}>
                 <div className="flex items-center gap-3 mb-4">
-                  {taskResult.success ? (
+                  {detailedResults.success ? (
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                       <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  ) : detailedResults.error ? (
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                   ) : (
@@ -1792,10 +1800,14 @@ function TaskRunnerTab() {
                     </div>
                   )}
                   <div>
-                    <h3 className={`text-lg font-semibold ${taskResult.success ? 'text-green-900' : 'text-red-900'}`}>
-                      {taskResult.success ? 'Success' : 'Failed'}
+                    <h3 className={`text-lg font-semibold ${
+                      detailedResults.success ? 'text-green-900' : detailedResults.error ? 'text-slate-900' : 'text-red-900'
+                    }`}>
+                      {detailedResults.success ? 'Success' : detailedResults.error ? 'Error' : 'Failed'}
                     </h3>
-                    <p className={`text-sm ${taskResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                    <p className={`text-sm ${
+                      detailedResults.success ? 'text-green-700' : detailedResults.error ? 'text-slate-700' : 'text-red-700'
+                    }`}>
                       Reward: {detailedResults.reward.toFixed(2)}
                     </p>
                   </div>
@@ -1803,12 +1815,12 @@ function TaskRunnerTab() {
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className={taskResult.success ? 'text-green-700' : 'text-red-700'}>Steps Taken:</span>
-                    <span className={`font-semibold ${taskResult.success ? 'text-green-900' : 'text-red-900'}`}>{detailedResults.n_steps}</span>
+                    <span className={detailedResults.success ? 'text-green-700' : detailedResults.error ? 'text-slate-700' : 'text-red-700'}>Steps Taken:</span>
+                    <span className={`font-semibold ${detailedResults.success ? 'text-green-900' : detailedResults.error ? 'text-slate-900' : 'text-red-900'}`}>{detailedResults.n_steps}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className={taskResult.success ? 'text-green-700' : 'text-red-700'}>Status:</span>
-                    <span className={`font-semibold ${taskResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                    <span className={detailedResults.success ? 'text-green-700' : detailedResults.error ? 'text-slate-700' : 'text-red-700'}>Status:</span>
+                    <span className={`font-semibold ${detailedResults.success ? 'text-green-900' : detailedResults.error ? 'text-slate-900' : 'text-red-900'}`}>
                       {detailedResults.terminated ? 'Terminated' : detailedResults.truncated ? 'Truncated' : 'Unknown'}
                     </span>
                   </div>
@@ -2101,6 +2113,8 @@ function TaskRunnerTab() {
                               </span>
                               {run.success ? (
                                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">Success</span>
+                              ) : run.error ? (
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded">Error</span>
                               ) : (
                                 <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">Failed</span>
                               )}

@@ -174,7 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("--action_names", type=str, nargs='+', default="")
 
     parser.add_argument("--clean_and_store", action="store_true", help="Clean and store the valid steps.")
-    parser.add_argument("--model", type=str, default="claude-3-haiku-20240307")
+    parser.add_argument("--model", type=str, default="claude-haiku-4-5")
 
     args = parser.parse_args()
 

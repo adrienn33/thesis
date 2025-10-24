@@ -15,7 +15,7 @@ def debug_mcp_execution():
     
     # Create agent with MCP tools
     args = DemoAgentArgs(
-        model_name='claude-3-haiku-20240307',
+        model_name='claude-haiku-4-5',
         websites=['shopping'],
         mcp_servers=config.get('mcp_servers')
     )
