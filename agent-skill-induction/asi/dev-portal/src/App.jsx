@@ -177,7 +177,8 @@ function App() {
               { id: 'tools', label: 'Tools', icon: '🔧' },
               { id: 'tests', label: 'Tests', icon: '✓' },
               { id: 'executor', label: 'Executor', icon: '▶' },
-              { id: 'taskrunner', label: 'Task Runner', icon: '🚀' }
+              { id: 'taskrunner', label: 'Task Runner', icon: '🚀' },
+              { id: 'skills', label: 'Skills', icon: '📚' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -202,6 +203,7 @@ function App() {
         {activeTab === 'tests' && <TestsTab runTest={runTest} testOutput={testOutput} loading={loading} />}
         {activeTab === 'executor' && <ExecutorTab tools={tools} executeTool={executeTool} loading={loading} />}
         {activeTab === 'taskrunner' && <TaskRunnerTab />}
+        {activeTab === 'skills' && <SkillsTab />}
       </main>
     </div>
   )
@@ -993,12 +995,146 @@ function ExecutorTab({ tools, executeTool, loading }) {
   )
 }
 
+function SkillsTab() {
+  const [skillsData, setSkillsData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'raw'
+
+  useEffect(() => {
+    fetchSkills()
+  }, [])
+
+  const fetchSkills = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('http://localhost:5000/api/skills')
+      const data = await res.json()
+      setSkillsData(data)
+    } catch (err) {
+      console.error('Failed to fetch skills:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <svg className="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Skill Library</h2>
+          <p className="text-slate-600">View learned skills from Agent Skill Induction</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white text-slate-900 shadow'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              List View
+            </button>
+            <button
+              onClick={() => setViewMode('raw')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'raw'
+                  ? 'bg-white text-slate-900 shadow'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Raw Code
+            </button>
+          </div>
+          <button
+            onClick={fetchSkills}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {skillsData?.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">{skillsData.error}</p>
+        </div>
+      )}
+
+      {skillsData && !skillsData.error && (
+        <>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{skillsData.skill_count}</div>
+                <div className="text-sm text-slate-600">Skills Learned</div>
+              </div>
+            </div>
+          </div>
+
+          {viewMode === 'list' ? (
+            <div className="space-y-4">
+              {skillsData.skills.length === 0 ? (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
+                  <div className="text-slate-400 mb-2">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-700 mb-1">No Skills Yet</h3>
+                  <p className="text-slate-500">Run tasks with ASI enabled to learn new skills</p>
+                </div>
+              ) : (
+                skillsData.skills.map((skill, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-lg p-5 hover:border-blue-300 transition-colors">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-slate-900 font-mono">{skill.name}()</h3>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                        Skill #{idx + 1}
+                      </span>
+                    </div>
+                    <pre className="text-sm text-slate-600 whitespace-pre-wrap font-sans">
+                      {skill.docstring}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="bg-slate-900 rounded-lg p-6 overflow-x-auto">
+              <pre className="text-sm text-green-400 font-mono whitespace-pre">
+                {skillsData.content}
+              </pre>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function TaskRunnerTab() {
   const [tasks, setTasks] = useState([])
   const [selectedTask, setSelectedTask] = useState('')
   const [website, setWebsite] = useState('shopping')
   const [headless, setHeadless] = useState(true)
   const [useMcp, setUseMcp] = useState(true)
+  const [useAsi, setUseAsi] = useState(false)
   const [running, setRunning] = useState(false)
   const [output, setOutput] = useState('')
   const [taskResult, setTaskResult] = useState(null)
@@ -1054,7 +1190,8 @@ function TaskRunnerTab() {
           task_name: selectedTask,
           website: website,
           headless: headless,
-          use_mcp: useMcp
+          use_mcp: useMcp,
+          use_asi: useAsi
         })
       })
 
@@ -1145,7 +1282,8 @@ function TaskRunnerTab() {
           task_ids: batchTaskIds,
           website: website,
           headless: headless,
-          use_mcp: useMcp
+          use_mcp: useMcp,
+          use_asi: useAsi
         })
       })
 
@@ -1219,6 +1357,29 @@ function TaskRunnerTab() {
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy:', err)
+    }
+  }
+
+  const resetSkills = async () => {
+    if (!confirm('This will reset the skill library (actions/shopping.py) to its initial state. The current version will be backed up. Continue?')) {
+      return
+    }
+
+    try {
+      const res = await fetch('http://localhost:5000/api/reset-skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      
+      if (data.error) {
+        alert(`Error: ${data.error}`)
+      } else {
+        alert(`Success! ${data.message}\nBackup saved as: ${data.backup}`)
+      }
+    } catch (err) {
+      console.error('Failed to reset skills:', err)
+      alert(`Error: ${err.message}`)
     }
   }
 
@@ -1464,6 +1625,20 @@ function TaskRunnerTab() {
                     Run in headless mode
                   </label>
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="use-asi"
+                    checked={useAsi}
+                    onChange={(e) => setUseAsi(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    disabled={running}
+                  />
+                  <label htmlFor="use-asi" className="text-sm font-medium text-slate-700">
+                    Enable ASI (Agent Skill Induction)
+                  </label>
+                </div>
               </div>
 
               <button
@@ -1489,6 +1664,20 @@ function TaskRunnerTab() {
                   </>
                 )}
               </button>
+
+              {/* Reset Skills Button */}
+              {useAsi && (
+                <button
+                  onClick={resetSkills}
+                  disabled={running}
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-slate-400 disabled:to-slate-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset Skill Library
+                </button>
+              )}
             </div>
           </div>
 
