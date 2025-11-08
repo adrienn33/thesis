@@ -1,6 +1,21 @@
 import os
 import json
 import argparse
+from pathlib import Path
+
+# Load environment variables from .env file if it exists
+def load_env_file():
+    env_file = Path(__file__).parent / '.env'
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+
+# Load .env on import
+load_env_file()
 
 # locally defined agent
 from agent import DemoAgentArgs

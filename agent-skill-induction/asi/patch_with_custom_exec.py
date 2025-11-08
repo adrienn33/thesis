@@ -32,6 +32,7 @@ def execute_python_code(
     globals = {
         "page": page,
         "send_message_to_user": send_message_to_user,
+        "send_msg_to_user": send_message_to_user,  # Alias for the abbreviated version
         "report_infeasible_instructions": report_infeasible_instructions,
         **additional_globals,
     }
@@ -59,9 +60,20 @@ def execute_python_code(
     
     # Add MCP tool functions to execution context
     main_globals = vars(__main__)
+    mcp_funcs_added = []
     for name, obj in main_globals.items():
         if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
             globals[name] = obj
+            mcp_funcs_added.append(name)
+    
+    # Debug: Log what MCP functions are available
+    if mcp_funcs_added:
+        logger.debug(f"Added {len(mcp_funcs_added)} MCP functions to execution context: {mcp_funcs_added}")
+    else:
+        logger.warning("No MCP functions found in __main__ to add to execution context!")
+        # Log what callable names are in __main__
+        callable_names = [name for name, obj in main_globals.items() if callable(obj) and not name.startswith('_')]
+        logger.debug(f"Callable functions in __main__: {callable_names[:20]}")
 
     exec(code, globals)
 

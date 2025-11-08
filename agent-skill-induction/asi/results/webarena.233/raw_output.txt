@@ -1,47 +1,43 @@
-2025-10-24 12:04:07,219 - 64695 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.233_8 in:
-  results/2025-10-24_12-04-07_DemoAgentArgs_on_webarena.233_8
-2025-10-24 12:04:07,220 - 64695 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
-2025-10-24 12:04:07,436 - 64695 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
-2025-10-24 12:04:07,436 - 64695 - agent - INFO - Connected to MCP server: magento-review-server
-2025-10-24 12:04:07,436 - 64695 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
-2025-10-24 12:04:07,625 - 64695 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
-2025-10-24 12:04:07,626 - 64695 - agent - INFO - Connected to MCP server: magento-product-server
+2025-10-31 00:08:11,893 - 76260 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.233_19 in:
+  results/2025-10-31_00-08-11_DemoAgentArgs_on_webarena.233_19
+2025-10-31 00:08:11,893 - 76260 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
+2025-10-31 00:08:12,077 - 76260 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
+2025-10-31 00:08:12,077 - 76260 - agent - INFO - Connected to MCP server: magento-review-server
+2025-10-31 00:08:12,077 - 76260 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
+2025-10-31 00:08:12,255 - 76260 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
+2025-10-31 00:08:12,256 - 76260 - agent - INFO - Connected to MCP server: magento-product-server
 /Users/christopher.mason/wsu/thesis_v3/agent-skill-induction/asi/venv/lib/python3.13/site-packages/beartype/_util/hint/pep/utilpeptest.py:345: BeartypeDecorHintPep585DeprecationWarning: PEP 484 type hint typing.Mapping[str, gymnasium.spaces.space.Space[typing.Any]] deprecated by PEP 585 scheduled for removal in the first Python version released after October 5th, 2025. To resolve this, import this hint from "beartype.typing" rather than "typing". See this discussion for further details and alternatives:
     https://github.com/beartype/beartype#pep-585-deprecations
   warn(
-2025-10-24 12:04:17,160 - 64695 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-24 12:04:17,279 - 64695 - browsergym.experiments.loop - INFO - action:
-I need to find the order number of the most recent complete order for the user Emma Lopez. Let me start by navigating to the My Account section to access the order history.
-
-Looking at the page, I can see there's a "My Account" link in the header (bid 227). I'll click on it to access the account page where I should be able to view orders.
+2025-10-31 00:08:21,435 - 76260 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-10-31 00:08:21,540 - 76260 - browsergym.experiments.loop - INFO - action:
+I need to get the order number of the most recent complete order. Let me start by clicking on "My Account" to access the account page where I can view order history.
 
 ```click("227")```
 
-2025-10-24 12:04:25,814 - 64695 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-24 12:04:25,850 - 64695 - browsergym.experiments.loop - INFO - action:
-Looking at the current page state, I can see I'm already on the "My Account" page (URL: http://localhost:7770/customer/account/). 
+2025-10-31 00:08:30,331 - 76260 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-10-31 00:08:30,361 - 76260 - browsergym.experiments.loop - INFO - action:
+Looking at the current page state, I can see the "Recent Orders" table which displays several orders. I need to find the most recent **complete** order.
 
-I can see a "Recent Orders" table that displays several orders with their statuses. Looking at the table rows, I need to find the most recent **complete** order.
+Examining the table rows:
+1. Order 000000170 (5/17/23) - Status: **Canceled**
+2. Order 000000189 (5/2/23) - Status: **Pending**
+3. Order 000000188 (5/2/23) - Status: **Pending**
+4. Order 000000187 (5/2/23) - Status: **Pending**
+5. Order 000000180 (3/11/23) - Status: **Complete** ✓
 
-From the accessibility tree, I can see the following orders listed:
-1. Order 000000170 - 5/17/23 - Status: **Canceled**
-2. Order 000000189 - 5/2/23 - Status: **Pending**
-3. Order 000000188 - 5/2/23 - Status: **Pending**
-4. Order 000000187 - 5/2/23 - Status: **Pending**
-5. Order 000000180 - 3/11/23 - Status: **Complete**
-
-The most recent complete order is **000000180** from 3/11/23 with a "Complete" status.
+The most recent complete order is **000000180** from 3/11/23. I can see this directly in the table on the current page.
 
 ```send_msg_to_user("The order number of your most recent complete order is 000000180.")```
 
-2025-10-24 12:04:26,834 - 64695 - browsergym.experiments.loop - INFO - Saving summary info.
+2025-10-31 00:08:31,256 - 76260 - browsergym.experiments.loop - INFO - Saving summary info.
 --- WARNING ---
 This is a basic agent for demo purposes.
 Visit AgentLab for more capable agents with advanced features.
 https://github.com/ServiceNow/AgentLab
 Loaded MCP configuration from config_files/233-mcp-container.json
 Found 2 MCP servers: ['magento-review-server', 'magento-product-server']
-exp_dir: results/2025-10-24_12-04-07_DemoAgentArgs_on_webarena.233_8
+exp_dir: results/2025-10-31_00-08-11_DemoAgentArgs_on_webarena.233_19
 agent_args.agent_name: DemoAgentArgs
 agent_args.model_name: claude-haiku-4-5
 agent_args.chat_mode: False
@@ -54,7 +50,7 @@ agent_args.actions: ()
 agent_args.memory: None
 agent_args.mcp_servers: [{'name': 'magento-review-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_review_data.py']}, {'name': 'magento-product-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_products.py']}]
 env_args.task_name: webarena.233
-env_args.task_seed: 8
+env_args.task_seed: 19
 env_args.max_steps: 10
 env_args.headless: True
 env_args.record_video: False
@@ -63,14 +59,14 @@ env_args.viewport: None
 env_args.slow_mo: None
 env_args.storage_state: None
 env_args.task_kwargs: None
-exp_name: DemoAgentArgs_on_webarena.233_8
+exp_name: DemoAgentArgs_on_webarena.233_19
 enable_debug: True
 err_msg: None
 stack_trace: None
 order: None
 logging_level: 20
 logging_level_stdout: 20
-exp_id: 011a2f2e-e3af-47c7-924c-50ba64c88403
+exp_id: 343e10d7-d7df-4cc1-8302-79e02a143f0c
 depends_on: ()
 save_screenshot: True
 save_som: False
@@ -78,17 +74,17 @@ n_steps: 2
 cum_reward: 1.0
 cum_raw_reward: 0
 stats.cum_steps: 3
-stats.cum_n_token_last_action: 84
-stats.max_n_token_last_action: 84
+stats.cum_n_token_last_action: 42
+stats.max_n_token_last_action: 42
 stats.cum_n_token_last_action_error: 0
 stats.max_n_token_last_action_error: 0
 stats.cum_n_token_axtree_txt: 9821
 stats.max_n_token_axtree_txt: 6246
-stats.cum_n_token_pruned_html: 101772
-stats.max_n_token_pruned_html: 56084
-stats.cum_step_elapsed: 12.16135835647583
-stats.max_step_elapsed: 7.009652376174927
-stats.cum_agent_elapsed: 5.711738109588623
-stats.max_agent_elapsed: 3.310986042022705
+stats.cum_n_token_pruned_html: 101804
+stats.max_n_token_pruned_html: 56119
+stats.cum_step_elapsed: 11.985756874084473
+stats.max_step_elapsed: 6.904868841171265
+stats.cum_agent_elapsed: 5.80550742149353
+stats.max_agent_elapsed: 3.6409661769866943
 terminated: True
 truncated: False

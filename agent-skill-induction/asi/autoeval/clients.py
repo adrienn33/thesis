@@ -62,6 +62,9 @@ class LM_Client:
 
 class Claude_Vision_Client:
     def __init__(self, model_name: str = "claude-3-5-sonnet-20241022", max_tokens: int = 512):
+        # Use Haiku 4.5 for evaluation to avoid model availability issues
+        if model_name == "claude-3-5-sonnet-20241022":
+            model_name = "claude-haiku-4-5"
         self.model_name = model_name
         self.max_tokens = max_tokens
 

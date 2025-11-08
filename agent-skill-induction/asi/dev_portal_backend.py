@@ -299,6 +299,7 @@ def run_task():
     website = data.get('website', 'shopping')
     headless = data.get('headless', True)
     use_mcp = data.get('use_mcp', True)
+    use_asi = data.get('use_asi', False)
     
     if not task_name:
         return jsonify({'error': 'task_name is required'}), 400
@@ -329,44 +330,86 @@ def run_task():
         cmd.append('--headless')
     
     def generate():
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env=os.environ.copy()
-        )
-        
-        result_dir = None
-        prev_line = ''
-        for line in iter(proc.stdout.readline, ''):
-            if line:
-                yield line
-                # Extract result directory from output
-                # Format is: "Running experiment ... in:\n  results/dirname"
-                if 'Running experiment' in prev_line and 'results/' in line:
-                    parts = line.strip().split('results/')
-                    if len(parts) > 1:
-                        result_dir = parts[1].strip()
-                elif 'results/' in line and 'Running experiment' in line:
-                    # Fallback for single-line format
-                    parts = line.split('results/')
-                    if len(parts) > 1:
-                        result_dir = parts[1].strip().split()[0]
-                prev_line = line
-        
-        proc.stdout.close()
-        return_code = proc.wait()
-        
-        if return_code == 0:
-            yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
-        else:
-            yield f'\n[TASK FAILED WITH CODE {return_code}]\n'
-        
-        # Send result directory path for frontend to fetch detailed results
-        if result_dir:
+        # If ASI is enabled, use run_online.py instead
+        if use_asi:
+            yield '[ASI] Running task with Agent Skill Induction enabled...\n'
+            proc = subprocess.Popen(
+                ['python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=os.environ.copy()
+            )
+            
+            result_dir = None
+            for line in iter(proc.stdout.readline, ''):
+                if line:
+                    yield line
+                    # Extract result directory for later use
+                    if 'results/webarena.' in line:
+                        parts = line.split('results/')
+                        if len(parts) > 1:
+                            potential_dir = parts[1].split()[0].strip()
+                            if potential_dir.startswith('webarena.'):
+                                result_dir = potential_dir
+            
+            proc.stdout.close()
+            return_code = proc.wait()
+            
+            if return_code == 0:
+                yield '\n[ASI] Agent Skill Induction completed successfully!\n'
+                yield '[ASI] Check actions/shopping.py for newly induced skills.\n'
+                yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
+            else:
+                yield f'\n[ASI] Process failed with code {return_code}\n'
+                yield '\n[TASK FAILED]\n'
+            
+            # Set result_dir to symlink if not extracted
+            if not result_dir:
+                result_dir = f'webarena.{task_name}'
+            
             yield f'\n[RESULT_DIR:{result_dir}]\n'
+        else:
+            # Normal execution without ASI
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=os.environ.copy()
+            )
+            
+            result_dir = None
+            prev_line = ''
+            for line in iter(proc.stdout.readline, ''):
+                if line:
+                    yield line
+                    # Extract result directory from output
+                    # Format is: "Running experiment ... in:\n  results/dirname"
+                    if 'Running experiment' in prev_line and 'results/' in line:
+                        parts = line.strip().split('results/')
+                        if len(parts) > 1:
+                            result_dir = parts[1].strip()
+                    elif 'results/' in line and 'Running experiment' in line:
+                        # Fallback for single-line format
+                        parts = line.split('results/')
+                        if len(parts) > 1:
+                            result_dir = parts[1].strip().split()[0]
+                    prev_line = line
+            
+            proc.stdout.close()
+            return_code = proc.wait()
+            
+            if return_code == 0:
+                yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
+            else:
+                yield f'\n[TASK FAILED WITH CODE {return_code}]\n'
+            
+            # Send result directory path for frontend to fetch detailed results
+            if result_dir:
+                yield f'\n[RESULT_DIR:{result_dir}]\n'
     
     return Response(generate(), mimetype='text/plain')
 
@@ -465,6 +508,10 @@ def get_task_results(result_path):
         raw_output_file = results_dir / 'raw_output.txt'
         if raw_output_file.exists():
             with open(raw_output_file, 'r') as f:
+                raw_output = f.read()
+        elif log_file.exists():
+            # Fallback to experiment.log if raw_output.txt doesn't exist
+            with open(log_file, 'r') as f:
                 raw_output = f.read()
         
         result = {
@@ -831,6 +878,72 @@ def get_saved_run_screenshot(run_id, filename):
         logger.error(f"Error serving saved run screenshot: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/skills', methods=['GET'])
+def get_skills():
+    """Get the current skill library content"""
+    try:
+        shopping_py_path = Path(__file__).parent / 'actions' / 'shopping.py'
+        
+        if not shopping_py_path.exists():
+            return jsonify({'error': 'Skill library not found'}), 404
+        
+        with open(shopping_py_path, 'r') as f:
+            content = f.read()
+        
+        # Parse out individual skills (functions)
+        import re
+        function_pattern = r'def\s+(\w+)\s*\([^)]*\):\s*"""(.*?)"""'
+        matches = re.findall(function_pattern, content, re.DOTALL)
+        
+        skills = []
+        for func_name, docstring in matches:
+            skills.append({
+                'name': func_name,
+                'docstring': docstring.strip()
+            })
+        
+        return jsonify({
+            'content': content,
+            'skill_count': len(skills),
+            'skills': skills,
+            'path': str(shopping_py_path)
+        })
+    except Exception as e:
+        logger.error(f"Error reading skills: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reset-skills', methods=['POST'])
+def reset_skills():
+    """Reset the skill library (shopping.py) to initial state"""
+    try:
+        initial_shopping_py = """from browsergym.core.action.functions import *
+
+import playwright.sync_api
+page: playwright.sync_api.Page = None
+
+
+# Skills will be induced here by ASI
+"""
+        
+        shopping_py_path = Path(__file__).parent / 'actions' / 'shopping.py'
+        
+        # Backup current file
+        backup_path = Path(__file__).parent / 'actions' / f'shopping.py.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        if shopping_py_path.exists():
+            import shutil
+            shutil.copy(shopping_py_path, backup_path)
+            logger.info(f"Backed up current shopping.py to {backup_path}")
+        
+        # Write initial state
+        with open(shopping_py_path, 'w') as f:
+            f.write(initial_shopping_py)
+        
+        logger.info("Reset shopping.py to initial state")
+        return jsonify({'success': True, 'message': 'Skill library reset to initial state', 'backup': backup_path.name})
+    except Exception as e:
+        logger.error(f"Error resetting skills: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/run-batch-tasks', methods=['POST'])
 def run_batch_tasks():
     """Run multiple WebArena tasks and stream progress updates"""
@@ -839,6 +952,7 @@ def run_batch_tasks():
     website = data.get('website', 'shopping')
     headless = data.get('headless', True)
     use_mcp = data.get('use_mcp', True)
+    use_asi = data.get('use_asi', False)
     
     if not task_ids_str:
         return jsonify({'error': 'task_ids is required'}), 400
@@ -858,43 +972,63 @@ def run_batch_tasks():
             task_num = idx + 1
             yield f"data: {json.dumps({'type': 'task_start', 'task_id': task_id, 'task_num': task_num, 'total': len(task_ids)})}\n\n"
             
-            # Determine config file
-            if use_mcp:
-                mcp_config_file = f"config_files/{task_id}-mcp-container.json"
-                if os.path.exists(mcp_config_file):
-                    config_file = mcp_config_file
+            # Run task with or without ASI
+            start_time = time.time()
+            
+            if use_asi:
+                # Use run_online.py for ASI workflow
+                yield f"data: {json.dumps({'type': 'task_output', 'task_id': task_id, 'line': '[ASI] Running task with Agent Skill Induction enabled...'})}\n\n"
+                cmd = [
+                    'python3', 'run_online.py',
+                    '--experiment', 'asi',
+                    '--website', website,
+                    '--task_ids', task_id
+                ]
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=os.environ.copy()
+                )
+            else:
+                # Normal execution without ASI
+                # Determine config file
+                if use_mcp:
+                    mcp_config_file = f"config_files/{task_id}-mcp-container.json"
+                    if os.path.exists(mcp_config_file):
+                        config_file = mcp_config_file
+                    else:
+                        config_file = f"config_files/{task_id}.json"
                 else:
                     config_file = f"config_files/{task_id}.json"
-            else:
-                config_file = f"config_files/{task_id}.json"
-            
-            if not os.path.exists(config_file):
-                yield f"data: {json.dumps({'type': 'task_error', 'task_id': task_id, 'error': f'Config file not found: {config_file}'})}\n\n"
-                batch_results.append({'task_id': task_id, 'status': 'error', 'error': 'Config not found'})
-                continue
-            
-            cmd = [
-                'python3', 'run_demo.py',
-                '--task_name', f'webarena.{task_id}',
-                '--websites', website
-            ]
-            
-            if use_mcp:
-                cmd.extend(['--mcp_config', config_file])
-            
-            if headless:
-                cmd.append('--headless')
-            
-            # Run task
-            start_time = time.time()
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=os.environ.copy()
-            )
+                
+                if not os.path.exists(config_file):
+                    yield f"data: {json.dumps({'type': 'task_error', 'task_id': task_id, 'error': f'Config file not found: {config_file}'})}\n\n"
+                    batch_results.append({'task_id': task_id, 'status': 'error', 'error': 'Config not found'})
+                    continue
+                
+                cmd = [
+                    'python3', 'run_demo.py',
+                    '--task_name', f'webarena.{task_id}',
+                    '--websites', website
+                ]
+                
+                if use_mcp:
+                    cmd.extend(['--mcp_config', config_file])
+                
+                if headless:
+                    cmd.append('--headless')
+                
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=os.environ.copy()
+                )
             
             result_dir = None
             output_lines = []
@@ -964,6 +1098,8 @@ def run_batch_tasks():
                         with open(timestamped_output, 'w') as f:
                             f.write(''.join(output_lines))
                         logger.info(f"Also saved raw output to timestamped dir: {timestamped_output}")
+                
+                # Note: ASI post-processing is handled by run_online.py, no need to do it here
                 
             except Exception as e:
                 logger.error(f"Error processing results for task {task_id}: {e}")

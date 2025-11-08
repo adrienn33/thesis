@@ -3,13 +3,33 @@ import json
 import argparse
 import subprocess
 from subprocess import Popen
+from pathlib import Path
+
+# Load environment variables from .env file if it exists
+def load_env_file():
+    env_file = Path(__file__).parent / '.env'
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+
+# Load .env on import
+load_env_file()
 
 def parse_task_ids(task_id_str: str) -> list[str]:
     chunks = [c.strip() for c in task_id_str.split(",")]
     task_id_list = []
     for c in chunks:
-        s, e = [int(n.strip()) for n in c.split("-")]
-        task_id_list.extend([str(i) for i in range(s, e+1)])
+        if "-" in c:
+            # Range format: "21-23"
+            s, e = [int(n.strip()) for n in c.split("-")]
+            task_id_list.extend([str(i) for i in range(s, e+1)])
+        else:
+            # Single ID: "21"
+            task_id_list.append(c)
     return task_id_list
 
 # %% Baseline
@@ -19,11 +39,22 @@ def run_vanilla():
 
     for tid in task_id_list:
         # step 1: task solving
-        process = Popen([
+        cmd = [
             "python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
             "--headless",
-        ])
+        ]
+        
+        # Add MCP config if available
+        mcp_config_file = f"config_files/{tid}-mcp-container.json"
+        if os.path.exists(mcp_config_file):
+            cmd.extend(["--mcp_config", mcp_config_file])
+        else:
+            regular_config = f"config_files/{tid}.json"
+            if os.path.exists(regular_config):
+                cmd.extend(["--mcp_config", regular_config])
+        
+        process = Popen(cmd)
         try:
             stdout, stderr = process.communicate(timeout=200)
             print(stdout)
@@ -40,12 +71,23 @@ def run_awm():
 
     for tid in task_id_list:
         # step 1: task solving
-        process = Popen([
+        cmd = [
             "python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
             "--memory_path", f"workflows/{args.website}.txt",
             "--headless",
-        ])
+        ]
+        
+        # Add MCP config if available
+        mcp_config_file = f"config_files/{tid}-mcp-container.json"
+        if os.path.exists(mcp_config_file):
+            cmd.extend(["--mcp_config", mcp_config_file])
+        else:
+            regular_config = f"config_files/{tid}.json"
+            if os.path.exists(regular_config):
+                cmd.extend(["--mcp_config", regular_config])
+        
+        process = Popen(cmd)
         process.wait()
         # input("[1] Completed task solving")
 
@@ -84,12 +126,23 @@ def run_asi():
     task_id_list = parse_task_ids(args.task_ids)
     for tid in task_id_list:
         # step 1: task solving
-        process = Popen([
+        cmd = [
             "python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
             "--websites", args.website,
             "--headless"
-        ])
+        ]
+        
+        # Add MCP config if available
+        mcp_config_file = f"config_files/{tid}-mcp-container.json"
+        if os.path.exists(mcp_config_file):
+            cmd.extend(["--mcp_config", mcp_config_file])
+        else:
+            regular_config = f"config_files/{tid}.json"
+            if os.path.exists(regular_config):
+                cmd.extend(["--mcp_config", regular_config])
+        
+        process = Popen(cmd)
         try:
             stdout, stderr = process.communicate(timeout=300)
             print("Process completed successfully:")
@@ -105,18 +158,28 @@ def run_asi():
         if not os.path.exists(path):
             print(f"Warning: {path} not found, skipping task {tid}")
             continue
-        if json.load(open(path, 'r'))["n_steps"] < 3: continue
+        
+        summary = json.load(open(path, 'r'))
+        if summary["n_steps"] < 3: 
+            print(f"Task {tid} only had {summary['n_steps']} steps (< 3 required), skipping skill induction")
+            continue
+        
+        # Check if task was successful based on reward
+        if summary.get("cum_reward", 0) < 1.0:
+            print(f"Task {tid} did not achieve reward >= 1.0 (got {summary.get('cum_reward', 0)}), skipping skill induction")
+            continue
 
-        # step 2: eval traj
-        process = Popen([
-            "python3", "-m", "autoeval.evaluate_trajectory",
-            "--result_dir", f"results/webarena.{tid}",
-        ])
-        process.wait()
-        path = f"results/webarena.{tid}/claude-3-5-sonnet-20241022_autoeval.json"
-        is_correct = json.load(open(path))[0]["rm"]  # bool
-        if not is_correct: continue
+        # step 2: eval traj (COMMENTED OUT - evaluator is unreliable)
+        # process = Popen([
+        #     "python3", "-m", "autoeval.evaluate_trajectory",
+        #     "--result_dir", f"results/webarena.{tid}",
+        # ])
+        # process.wait()
+        # path = f"results/webarena.{tid}/claude-3-5-sonnet-20241022_autoeval.json"
+        # is_correct = json.load(open(path))[0]["rm"]  # bool
+        # if not is_correct: continue
         # input("[2.1] Completed evaluated trajectory (true)")
+        
         process = Popen([
             "python3", "-m", "results.calc_valid_steps",
             "--clean_and_store", "--result_dir", f"results/webarena.{tid}",
@@ -125,6 +188,7 @@ def run_asi():
         # input("[2.2] Completed clean trajectory")
 
         # step 3: induce actions
+        print(f"[ASI] Starting skill induction for task {tid}...")
         process = Popen([
             "python3", "-m", "induce.induce_actions",
             "--website", args.website,
@@ -132,12 +196,17 @@ def run_asi():
         ])
         try:
             stdout, stderr = process.communicate(timeout=200)
-            print(stdout)
+            if stdout:
+                print(f"[ASI] Skill induction output:\n{stdout.decode() if isinstance(stdout, bytes) else stdout}")
+            if stderr:
+                print(f"[ASI] Skill induction errors:\n{stderr.decode() if isinstance(stderr, bytes) else stderr}")
+            print(f"[ASI] Skill induction completed for task {tid}")
         except subprocess.TimeoutExpired as e:
             process.kill()
             stdout, stderr = process.communicate() # Clean up resources
-            print(f"Process timed out after {e.timeout} seconds.")
-            print(stderr)
+            print(f"[ASI] ERROR: Skill induction timed out after {e.timeout} seconds for task {tid}")
+            if stderr:
+                print(f"[ASI] Partial stderr:\n{stderr.decode() if isinstance(stderr, bytes) else stderr}")
         # input("[3] Completed induced workflow")
 
         # intermediate supervision
@@ -149,11 +218,22 @@ def run_veri_program():
     task_id_list = parse_task_ids(args.task_ids)
     for tid in task_id_list:
         # step 1: task solving with memory input
-        process = Popen([
+        cmd = [
             "python3", "run_demo.py", "--headless",
             "--task_name", f"webarena.{tid}",
             "--memory_path", f"workflows/{args.website}.txt",
-        ])
+        ]
+        
+        # Add MCP config if available
+        mcp_config_file = f"config_files/{tid}-mcp-container.json"
+        if os.path.exists(mcp_config_file):
+            cmd.extend(["--mcp_config", mcp_config_file])
+        else:
+            regular_config = f"config_files/{tid}.json"
+            if os.path.exists(regular_config):
+                cmd.extend(["--mcp_config", regular_config])
+        
+        process = Popen(cmd)
         try:
             stdout, stderr = process.communicate(timeout=300)
             print("Process completed successfully:")
@@ -220,12 +300,23 @@ def run_mem_asi():
     task_id_list = parse_task_ids(args.task_ids)
     for tid in task_id_list:
         # step 1: task solving
-        process = Popen([
+        cmd = [
             "python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
             "--websites", args.website,
             "--headless"
-        ])
+        ]
+        
+        # Add MCP config if available
+        mcp_config_file = f"config_files/{tid}-mcp-container.json"
+        if os.path.exists(mcp_config_file):
+            cmd.extend(["--mcp_config", mcp_config_file])
+        else:
+            regular_config = f"config_files/{tid}.json"
+            if os.path.exists(regular_config):
+                cmd.extend(["--mcp_config", regular_config])
+        
+        process = Popen(cmd)
         try:
             stdout, stderr = process.communicate(timeout=300)
             print("Process completed successfully:")
