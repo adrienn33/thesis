@@ -159,7 +159,7 @@ class MagentoProductServer(MCPServer):
     async def search_products(self, sku: Optional[str] = None, name: Optional[str] = None, 
                              description: Optional[str] = None, category: Optional[str] = None,
                              min_price: Optional[str] = None, max_price: Optional[str] = None,
-                             limit: str = "50") -> List[Dict]:
+                             limit: str = "200") -> List[Dict]:
         """Search for products by SKU, product name, description, category, and/or price range.
         
         Args:
@@ -169,7 +169,7 @@ class MagentoProductServer(MCPServer):
             category: Category name or ID
             min_price: Minimum price
             max_price: Maximum price
-            limit: Maximum number of results (default 50)
+            limit: Maximum number of results (default 200)
             
         Returns:
             List of products with basic information
@@ -246,11 +246,13 @@ class MagentoProductServer(MCPServer):
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
             
-            limit_value = int(limit) if limit is not None else 50
+            limit_value = int(limit) if limit is not None else 200
             base_query += f" LIMIT {limit_value}"
             
+            logger.info(f"Executing query with LIMIT {limit_value}, limit param was: {limit}")
             await cursor.execute(base_query, tuple(params))
             results = await cursor.fetchall()
+            logger.info(f"Query returned {len(results)} results")
             
             products = []
             for row in results:

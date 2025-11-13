@@ -1,24 +1,34 @@
-2025-10-31 00:07:49,260 - 75815 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.232_17 in:
-  results/2025-10-31_00-07-49_DemoAgentArgs_on_webarena.232_17
-2025-10-31 00:07:49,260 - 75815 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
-2025-10-31 00:07:49,454 - 75815 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
-2025-10-31 00:07:49,454 - 75815 - agent - INFO - Connected to MCP server: magento-review-server
-2025-10-31 00:07:49,454 - 75815 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
-2025-10-31 00:07:49,636 - 75815 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
-2025-10-31 00:07:49,636 - 75815 - agent - INFO - Connected to MCP server: magento-product-server
+2025-11-12 21:04:36,298 - 94856 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.232_1 in:
+  results/2025-11-12_21-04-36_DemoAgentArgs_on_webarena.232_1
+2025-11-12 21:04:36,298 - 94856 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
+2025-11-12 21:04:36,511 - 94856 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
+2025-11-12 21:04:36,511 - 94856 - agent - INFO - Connected to MCP server: magento-review-server
+2025-11-12 21:04:36,511 - 94856 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
+2025-11-12 21:04:36,692 - 94856 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
+2025-11-12 21:04:36,692 - 94856 - agent - INFO - Connected to MCP server: magento-product-server
 /Users/christopher.mason/wsu/thesis_v3/agent-skill-induction/asi/venv/lib/python3.13/site-packages/beartype/_util/hint/pep/utilpeptest.py:345: BeartypeDecorHintPep585DeprecationWarning: PEP 484 type hint typing.Mapping[str, gymnasium.spaces.space.Space[typing.Any]] deprecated by PEP 585 scheduled for removal in the first Python version released after October 5th, 2025. To resolve this, import this hint from "beartype.typing" rather than "typing". See this discussion for further details and alternatives:
     https://github.com/beartype/beartype#pep-585-deprecations
   warn(
-2025-10-31 00:07:59,053 - 75815 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-31 00:07:59,161 - 75815 - browsergym.experiments.loop - INFO - action:
+2025-11-12 21:04:46,299 - 94856 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-12 21:04:46,412 - 94856 - browsergym.experiments.loop - INFO - action:
 I need to find the order number of the most recent pending order. Let me start by navigating to the account page where I can view orders.
 
 Looking at the current page, I can see there's a "My Account" link in the header (bid 227). I should click on it to access the account page where I can view my orders.
 
 ```click('227')```
 
-2025-10-31 00:08:07,310 - 75815 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-31 00:08:07,339 - 75815 - browsergym.experiments.loop - INFO - action:
+2025-11-12 21:04:46,416 - 94856 - browsergym.core.env - INFO - execute_python_code called with 21297 chars
+2025-11-12 21:04:46,416 - 94856 - browsergym.core.env - INFO - Starting REPL-style execution logic
+2025-11-12 21:04:46,417 - 94856 - browsergym.core.env - INFO - Parsed 37 statements
+2025-11-12 21:04:46,417 - 94856 - browsergym.core.env - INFO - Last statement is an expression - attempting REPL-style eval
+2025-11-12 21:04:46,417 - 94856 - browsergym.core.env - INFO - Executing 36 preceding statements, then eval last
+2025-11-12 21:04:46,417 - 94856 - browsergym.core.env - INFO - Executing preceding statements...
+2025-11-12 21:04:46,418 - 94856 - browsergym.core.env - INFO - Preceding statements executed successfully
+2025-11-12 21:04:46,418 - 94856 - browsergym.core.env - INFO - Evaluating last expression...
+2025-11-12 21:04:50,874 - 94856 - browsergym.core.env - INFO - Eval completed, result type: <class 'NoneType'>
+2025-11-12 21:04:50,874 - 94856 - browsergym.core.env - INFO - Checking if result is None: True
+2025-11-12 21:04:55,005 - 94856 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-12 21:04:55,040 - 94856 - browsergym.experiments.loop - INFO - action:
 Looking at the current page, I can see the "Recent Orders" table which displays several orders. I need to identify the most recent pending order.
 
 From the accessibility tree, I can see the following orders with their statuses:
@@ -32,14 +42,24 @@ The pending orders are 000000189, 000000188, and 000000187, all dated 5/2/23. Si
 
 ```send_msg_to_user("The order number of your most recent pending order is 000000189.")```
 
-2025-10-31 00:08:08,222 - 75815 - browsergym.experiments.loop - INFO - Saving summary info.
+2025-11-12 21:04:55,042 - 94856 - browsergym.core.env - INFO - execute_python_code called with 21369 chars
+2025-11-12 21:04:55,042 - 94856 - browsergym.core.env - INFO - Starting REPL-style execution logic
+2025-11-12 21:04:55,044 - 94856 - browsergym.core.env - INFO - Parsed 37 statements
+2025-11-12 21:04:55,044 - 94856 - browsergym.core.env - INFO - Last statement is an expression - attempting REPL-style eval
+2025-11-12 21:04:55,044 - 94856 - browsergym.core.env - INFO - Executing 36 preceding statements, then eval last
+2025-11-12 21:04:55,044 - 94856 - browsergym.core.env - INFO - Executing preceding statements...
+2025-11-12 21:04:55,045 - 94856 - browsergym.core.env - INFO - Preceding statements executed successfully
+2025-11-12 21:04:55,045 - 94856 - browsergym.core.env - INFO - Evaluating last expression...
+2025-11-12 21:04:55,049 - 94856 - browsergym.core.env - INFO - Eval completed, result type: <class 'NoneType'>
+2025-11-12 21:04:55,049 - 94856 - browsergym.core.env - INFO - Checking if result is None: True
+2025-11-12 21:04:55,951 - 94856 - browsergym.experiments.loop - INFO - Saving summary info.
 --- WARNING ---
 This is a basic agent for demo purposes.
 Visit AgentLab for more capable agents with advanced features.
 https://github.com/ServiceNow/AgentLab
 Loaded MCP configuration from config_files/232-mcp-container.json
 Found 2 MCP servers: ['magento-review-server', 'magento-product-server']
-exp_dir: results/2025-10-31_00-07-49_DemoAgentArgs_on_webarena.232_17
+exp_dir: results/2025-11-12_21-04-36_DemoAgentArgs_on_webarena.232_1
 agent_args.agent_name: DemoAgentArgs
 agent_args.model_name: claude-haiku-4-5
 agent_args.chat_mode: False
@@ -52,7 +72,7 @@ agent_args.actions: ()
 agent_args.memory: None
 agent_args.mcp_servers: [{'name': 'magento-review-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_review_data.py']}, {'name': 'magento-product-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_products.py']}]
 env_args.task_name: webarena.232
-env_args.task_seed: 17
+env_args.task_seed: 1
 env_args.max_steps: 10
 env_args.headless: True
 env_args.record_video: False
@@ -61,14 +81,14 @@ env_args.viewport: None
 env_args.slow_mo: None
 env_args.storage_state: None
 env_args.task_kwargs: None
-exp_name: DemoAgentArgs_on_webarena.232_17
+exp_name: DemoAgentArgs_on_webarena.232_1
 enable_debug: True
 err_msg: None
 stack_trace: None
 order: None
 logging_level: 20
 logging_level_stdout: 20
-exp_id: 1de16849-f50e-4ff1-b40e-84d2a2652dba
+exp_id: d9fb04b5-c4c8-41ba-a45c-cd20a42d20f3
 depends_on: ()
 save_screenshot: True
 save_som: False
@@ -80,13 +100,15 @@ stats.cum_n_token_last_action: 77
 stats.max_n_token_last_action: 77
 stats.cum_n_token_last_action_error: 0
 stats.max_n_token_last_action_error: 0
+stats.cum_n_token_last_action_output: 0
+stats.max_n_token_last_action_output: 0
 stats.cum_n_token_axtree_txt: 9821
 stats.max_n_token_axtree_txt: 6246
-stats.cum_n_token_pruned_html: 101780
-stats.max_n_token_pruned_html: 56095
-stats.cum_step_elapsed: 12.037574768066406
-stats.max_step_elapsed: 6.958820819854736
-stats.cum_agent_elapsed: 5.345553159713745
-stats.max_agent_elapsed: 3.000153064727783
+stats.cum_n_token_pruned_html: 101800
+stats.max_n_token_pruned_html: 56117
+stats.cum_step_elapsed: 12.16112494468689
+stats.max_step_elapsed: 6.990883111953735
+stats.cum_agent_elapsed: 5.857542276382446
+stats.max_agent_elapsed: 3.349905252456665
 terminated: True
 truncated: False
