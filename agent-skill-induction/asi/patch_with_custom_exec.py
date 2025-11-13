@@ -1,12 +1,45 @@
+import ast
+import copy
 import re
 import time
 
+import numpy as np
 import playwright.sync_api
 
 from browsergym.core.env import BrowserEnv, logger
+from browsergym.core.constants import EXTRACT_OBS_MAX_TRIES
+from browsergym.core.observation import (
+    extract_dom_snapshot,
+    extract_merged_axtree,
+    extract_focused_element_bid,
+    extract_screenshot,
+    extract_dom_extra_properties,
+    _pre_extract,
+    _post_extract,
+    MarkingError,
+)
 
 
 agent_args = None
+repl_output = None  # Global to store REPL output for current step
+
+
+def _try_to_extract_legacy_goal(goal: list):
+    """Helper function copied from browsergym.core.env"""
+    legacy_goal_strings = []
+    for message in goal:
+        if message["type"] == "text":
+            legacy_goal_strings.append(message["text"])
+        else:
+            logger.debug(
+                f"Message type {repr(message['type'])} present in the goal, cannot be converted to legacy text-only format."
+            )
+            legacy_goal_strings.append(
+                'WARNING: This goal cannot be converted to a text-only goal format. Use the new goal format instead ("goal_object" field). Any agent reading this should abort immediately.'
+            )
+            break
+    legacy_goal = "\n".join(legacy_goal_strings)
+    return legacy_goal
 
 def execute_python_code(
     code: str,
@@ -28,12 +61,16 @@ def execute_python_code(
         report_infeasible_instructions: utility function that will be made accessible to the code. It should take one text argument.
         additional_globals: additional global variables to make accessible to the code.
     """
+    
+    logger.info(f"execute_python_code called with {len(code)} chars")
+    logger.debug(f"Code preview: {code[:200]}...")
 
     globals = {
         "page": page,
         "send_message_to_user": send_message_to_user,
         "send_msg_to_user": send_message_to_user,  # Alias for the abbreviated version
         "report_infeasible_instructions": report_infeasible_instructions,
+        "DEMO_MODE": False,  # Required by python_includes (custom_action_set.py:107)
         **additional_globals,
     }
     
@@ -46,12 +83,16 @@ def execute_python_code(
     # This is needed because MCP wrapper functions defined in __main__ need to access it
     def _call_mcp_tool(tool_name, **kwargs):
         """Execute an MCP tool by name"""
+        logger.info(f"_call_mcp_tool called: tool={tool_name}, kwargs={kwargs}")
         if not hasattr(__main__, '_action_set_mcp_manager'):
             raise RuntimeError("MCP manager not available in execution context")
         tools = __main__._action_set_mcp_manager.get_all_tools()
         if tool_name not in tools:
             raise NameError(f"MCP tool '{tool_name}' not found")
-        return tools[tool_name](**kwargs)
+        logger.info(f"Calling MCP tool wrapper for {tool_name}")
+        result = tools[tool_name](**kwargs)
+        logger.info(f"MCP tool returned: type={type(result)}, len={len(result) if isinstance(result, (list,dict)) else 'N/A'}")
+        return result
     
     # Add to __main__ so wrapper functions can find it
     __main__._call_mcp_tool = _call_mcp_tool
@@ -75,7 +116,68 @@ def execute_python_code(
         callable_names = [name for name, obj in main_globals.items() if callable(obj) and not name.startswith('_')]
         logger.debug(f"Callable functions in __main__: {callable_names[:20]}")
 
-    exec(code, globals)
+    # REPL-style execution: auto-display results of final expressions
+    code = code.strip()
+    
+    logger.info("Starting REPL-style execution logic")
+    
+    try:
+        # Parse code to detect structure
+        tree = ast.parse(code, mode='exec')
+        logger.info(f"Parsed {len(tree.body)} statements")
+        
+        # Check if the LAST statement is an expression (handles python_includes prepended)
+        if tree.body and isinstance(tree.body[-1], ast.Expr):
+            logger.info("Last statement is an expression - attempting REPL-style eval")
+            # Last statement is an expression - execute all but last, then eval last and display
+            try:
+                if len(tree.body) == 1:
+                    # Only one statement, just eval it
+                    result = eval(code, globals)
+                else:
+                    # Multiple statements - execute all but last, then eval last
+                    logger.info(f"Executing {len(tree.body)-1} preceding statements, then eval last")
+                    # Split code to isolate last expression
+                    last_expr_node = tree.body[-1]
+                    preceding_code = ast.Module(body=tree.body[:-1], type_ignores=[])
+                    
+                    # Execute preceding statements
+                    logger.info("Executing preceding statements...")
+                    exec(compile(preceding_code, '<string>', 'exec'), globals)
+                    logger.info("Preceding statements executed successfully")
+                    
+                    # Eval last expression
+                    logger.info("Evaluating last expression...")
+                    last_expr = ast.Expression(body=last_expr_node.value)
+                    result = eval(compile(last_expr, '<string>', 'eval'), globals)
+                    logger.info(f"Eval completed, result type: {type(result)}")
+                
+                # Display non-None results
+                logger.info(f"Checking if result is None: {result is None}")
+                if result is not None:
+                    logger.info("Converting result to string...")
+                    result_str = repr(result)
+                    logger.info(f"Result string length: {len(result_str)}")
+                    if len(result_str) > 10000:
+                        result_str = result_str[:10000] + f"... (truncated, total length: {len(result_str)})"
+                    logger.info("Storing REPL output...")
+                    # Store in global instead of sending to chat to avoid STOP action
+                    global repl_output
+                    repl_output = f"→ {result_str}"
+                    logger.info(f"REPL auto-display stored: {result_str[:200]}")
+            except Exception as e:
+                # If REPL-style execution fails, fall back to regular exec
+                logger.warning(f"REPL-style execution failed, falling back to exec: {e}")
+                exec(code, globals)
+        else:
+            # Last statement is not an expression - execute normally
+            exec(code, globals)
+    except SyntaxError:
+        # Fallback: if parsing fails, try exec (handles edge cases)
+        exec(code, globals)
+    except Exception:
+        # Re-raise execution errors so they're handled by the step() function
+        raise
 
 
 def step(self: BrowserEnv, action: str) -> tuple:
@@ -85,6 +187,14 @@ def step(self: BrowserEnv, action: str) -> tuple:
     TODO: Probably better to refactor browsergym to support custom exec instead of this hack.
     """        
     self.last_action = action
+    
+    # Initialize last_action_output if it doesn't exist
+    if not hasattr(self, 'last_action_output'):
+        self.last_action_output = ""
+    
+    # Clear REPL output from previous step
+    global repl_output
+    repl_output = None
 
     info = {}
     info["action_exec_start"] = time.time()
@@ -117,8 +227,14 @@ def step(self: BrowserEnv, action: str) -> tuple:
             env=self,
         )
         self.last_action_error = ""
+        # Set REPL output if available
+        if repl_output is not None:
+            self.last_action_output = repl_output
+        else:
+            self.last_action_output = ""
     except Exception as e:
         self.last_action_error = f"{type(e).__name__}: {e}"
+        self.last_action_output = ""
         match = re.match("TimeoutError: Timeout ([0-9]+)ms exceeded.", self.last_action_error)
         if match:
             info["action_exec_timeout"] = float(match.groups()[0]) / 1000  # ms to sec
@@ -163,7 +279,80 @@ def step(self: BrowserEnv, action: str) -> tuple:
 
     return obs, reward, terminated, truncated, info
     
+def get_obs(self):
+    """
+    Patched version of BrowserEnv._get_obs() that includes last_action_output field.
+    """
+    if self.use_raw_page_output:
+        obs = {
+            "page": self.page,
+            "chat_messages": tuple(copy.deepcopy(self.chat.messages)),
+            "goal": _try_to_extract_legacy_goal(self.goal_object),
+            "goal_object": tuple(copy.deepcopy(self.goal_object)),
+            "open_pages_urls": tuple(page.url for page in self.context.pages),
+            "open_pages_titles": tuple(page.title() for page in self.context.pages),
+            "active_page_index": np.asarray([self.context.pages.index(self.page)]),
+            "url": self.page.url,
+            "last_action": self.last_action,
+            "last_action_error": self.last_action_error,
+            "last_action_output": getattr(self, "last_action_output", ""),
+            "elapsed_time": np.asarray([time.time() - self.start_time]),
+        }
+        return obs
+    
+    for retries_left in reversed(range(EXTRACT_OBS_MAX_TRIES)):
+        try:
+            _pre_extract(self.page, tags_to_mark=self.tags_to_mark, lenient=(retries_left == 0))
+            dom = extract_dom_snapshot(self.page)
+            axtree = extract_merged_axtree(self.page)
+            focused_element_bid = extract_focused_element_bid(self.page)
+            scale_factor = getattr(self.page, "_bgym_scale_factor", 1.0)
+            extra_properties = extract_dom_extra_properties(dom, scale_factor=scale_factor)
+        except (playwright.sync_api.Error, MarkingError) as e:
+            err_msg = str(e)
+            if retries_left > 0 and (
+                "Frame was detached" in err_msg
+                or "Frame with the given frameId is not found" in err_msg
+                or "Execution context was destroyed" in err_msg
+                or "Frame has been detached" in err_msg
+                or "Cannot mark a child frame without a bid" in err_msg
+                or "Cannot read properties of undefined" in err_msg
+            ):
+                logger.warning(
+                    f"An error occurred while extracting the dom and axtree. Retrying ({retries_left}/{EXTRACT_OBS_MAX_TRIES} tries left).\n{repr(e)}"
+                )
+                _post_extract(self.page)
+                time.sleep(0.5)
+                continue
+            else:
+                raise e
+        break
+    
+    _post_extract(self.page)
+    
+    obs = {
+        "chat_messages": tuple(copy.deepcopy(self.chat.messages)),
+        "goal": _try_to_extract_legacy_goal(self.goal_object),
+        "goal_object": tuple(copy.deepcopy(self.goal_object)),
+        "open_pages_urls": tuple(page.url for page in self.context.pages),
+        "open_pages_titles": tuple(page.title() for page in self.context.pages),
+        "active_page_index": np.asarray([self.context.pages.index(self.page)]),
+        "url": self.page.url,
+        "screenshot": extract_screenshot(self.page),
+        "dom_object": dom,
+        "axtree_object": axtree,
+        "extra_element_properties": extra_properties,
+        "focused_element_bid": focused_element_bid,
+        "last_action": self.last_action,
+        "last_action_error": self.last_action_error,
+        "last_action_output": getattr(self, "last_action_output", ""),
+        "elapsed_time": np.asarray([time.time() - self.start_time]),
+    }
+    
+    return obs
+
 def patch_with_custom_exec(args):
     global agent_args
     agent_args = args
     setattr(BrowserEnv, "step", step)
+    setattr(BrowserEnv, "_get_obs", get_obs)

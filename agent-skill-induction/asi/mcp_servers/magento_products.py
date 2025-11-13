@@ -246,7 +246,8 @@ class MagentoProductServer(MCPServer):
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
             
-            base_query += f" LIMIT {int(limit)}"
+            limit_value = int(limit) if limit is not None else 50
+            base_query += f" LIMIT {limit_value}"
             
             await cursor.execute(base_query, tuple(params))
             results = await cursor.fetchall()

@@ -44,6 +44,7 @@ class DemoAgent(Agent):
             "goal_object": obs["goal_object"],
             "last_action": obs["last_action"],
             "last_action_error": obs["last_action_error"],
+            "last_action_output": obs.get("last_action_output", ""),
             "open_pages_urls": obs["open_pages_urls"],
             "open_pages_titles": obs["open_pages_titles"],
             "active_page_index": obs["active_page_index"],
@@ -401,8 +402,20 @@ def {func_name}({param_str}):
     """,
                         }
                     )
-                    print("Error message from last action: ", obs["last_action_error"])
-                    # cont = input("Continue? (y/n): ")
+                
+                # Show REPL-style output from previous action
+                if obs.get("last_action_output"):
+                    user_msgs.append(
+                        {
+                            "type": "text",
+                            "text": f"""\
+    # Output from last action
+
+    {obs["last_action_output"]}
+
+    """,
+                        }
+                    )
 
             # ask for the next action
             user_msgs.append(

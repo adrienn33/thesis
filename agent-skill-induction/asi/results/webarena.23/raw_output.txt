@@ -1,30 +1,30 @@
-2025-10-30 23:41:35,110 - 44117 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.23_3 in:
-  results/2025-10-30_23-41-35_DemoAgentArgs_on_webarena.23_3
-2025-10-30 23:41:35,111 - 44117 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
-2025-10-30 23:41:35,312 - 44117 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
-2025-10-30 23:41:35,313 - 44117 - agent - INFO - Connected to MCP server: magento-review-server
-2025-10-30 23:41:35,313 - 44117 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
-2025-10-30 23:41:35,495 - 44117 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
-2025-10-30 23:41:35,495 - 44117 - agent - INFO - Connected to MCP server: magento-product-server
+2025-11-12 15:28:00,111 - 44120 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.23_30 in:
+  results/2025-11-12_15-28-00_DemoAgentArgs_on_webarena.23_30
+2025-11-12 15:28:00,111 - 44120 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
+2025-11-12 15:28:00,315 - 44120 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
+2025-11-12 15:28:00,315 - 44120 - agent - INFO - Connected to MCP server: magento-review-server
+2025-11-12 15:28:00,315 - 44120 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
+2025-11-12 15:28:00,509 - 44120 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
+2025-11-12 15:28:00,509 - 44120 - agent - INFO - Connected to MCP server: magento-product-server
 /Users/christopher.mason/wsu/thesis_v3/agent-skill-induction/asi/venv/lib/python3.13/site-packages/beartype/_util/hint/pep/utilpeptest.py:345: BeartypeDecorHintPep585DeprecationWarning: PEP 484 type hint typing.Mapping[str, gymnasium.spaces.space.Space[typing.Any]] deprecated by PEP 585 scheduled for removal in the first Python version released after October 5th, 2025. To resolve this, import this hint from "beartype.typing" rather than "typing". See this discussion for further details and alternatives:
     https://github.com/beartype/beartype#pep-585-deprecations
   warn(
-2025-10-30 23:41:47,047 - 44117 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-30 23:41:47,145 - 44117 - browsergym.experiments.loop - INFO - action:
+2025-11-12 15:28:12,917 - 44120 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-12 15:28:13,014 - 44120 - browsergym.experiments.loop - INFO - action:
 I need to find reviewers who mention "good fingerprint resistant" for this Samsung Galaxy S6 Screen Protector product. Let me use the MCP tool to retrieve all reviews for this product first.
 
-The product SKU is "B01G31IYM0" as shown on the page. I'll use the magento_review_server_get_product_reviews function to get all reviews, then filter for those mentioning fingerprint resistance.
+The product SKU is "B01G31IYM0" as shown in the page. I'll retrieve all reviews and then filter for those mentioning fingerprint resistance.
 
 ```
 # Get all reviews for this product using the SKU
 reviews = magento_review_server_get_product_reviews("B01G31IYM0")
 
 # Filter reviews that mention fingerprint resistance (case-insensitive)
-fingerprint_reviews = []
+fingerprint_reviewers = []
 for review in reviews:
     review_text = (review.get('title', '') + ' ' + review.get('detail', '')).lower()
     if 'fingerprint' in review_text and ('resistant' in review_text or 'resist' in review_text or 'good' in review_text):
-        fingerprint_reviews.append({
+        fingerprint_reviewers.append({
             'nickname': review.get('nickname', 'Unknown'),
             'title': review.get('title', ''),
             'detail': review.get('detail', ''),
@@ -32,26 +32,25 @@ for review in reviews:
         })
 
 # Send results to user
-if fingerprint_reviews:
+if fingerprint_reviewers:
     result_text = "Reviewers who mention good fingerprint resistant:\n\n"
-    for i, review in enumerate(fingerprint_reviews, 1):
-        result_text += f"{i}. {review['nickname']}\n"
-        result_text += f"   Title: {review['title']}\n"
-        result_text += f"   Rating: {review['rating']}\n"
-        result_text += f"   Review: {review['detail'][:200]}...\n\n"
+    for i, reviewer in enumerate(fingerprint_reviewers, 1):
+        result_text += f"{i}. **{reviewer['nickname']}** (Rating: {reviewer['rating']}/5)\n"
+        result_text += f"   Title: {reviewer['title']}\n"
+        result_text += f"   Review: {reviewer['detail']}\n\n"
     send_msg_to_user(result_text)
 else:
-    send_msg_to_user("No reviewers found who mention fingerprint resistance in their reviews.")
+    send_msg_to_user("No reviewers found who mention good fingerprint resistant for this product.")
 ```
 
-2025-10-30 23:41:47,980 - 44117 - browsergym.experiments.loop - INFO - Saving summary info.
+2025-11-12 15:28:13,882 - 44120 - browsergym.experiments.loop - INFO - Saving summary info.
 --- WARNING ---
 This is a basic agent for demo purposes.
 Visit AgentLab for more capable agents with advanced features.
 https://github.com/ServiceNow/AgentLab
 Loaded MCP configuration from config_files/23-mcp-container.json
 Found 2 MCP servers: ['magento-review-server', 'magento-product-server']
-exp_dir: results/2025-10-30_23-41-35_DemoAgentArgs_on_webarena.23_3
+exp_dir: results/2025-11-12_15-28-00_DemoAgentArgs_on_webarena.23_30
 agent_args.agent_name: DemoAgentArgs
 agent_args.model_name: claude-haiku-4-5
 agent_args.chat_mode: False
@@ -64,7 +63,7 @@ agent_args.actions: ()
 agent_args.memory: None
 agent_args.mcp_servers: [{'name': 'magento-review-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_review_data.py']}, {'name': 'magento-product-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_products.py']}]
 env_args.task_name: webarena.23
-env_args.task_seed: 3
+env_args.task_seed: 30
 env_args.max_steps: 10
 env_args.headless: True
 env_args.record_video: False
@@ -73,14 +72,14 @@ env_args.viewport: None
 env_args.slow_mo: None
 env_args.storage_state: None
 env_args.task_kwargs: None
-exp_name: DemoAgentArgs_on_webarena.23_3
+exp_name: DemoAgentArgs_on_webarena.23_30
 enable_debug: True
 err_msg: None
 stack_trace: None
 order: None
 logging_level: 20
 logging_level_stdout: 20
-exp_id: 7c9c7989-2e87-472c-b4b3-0d9aa81efcb7
+exp_id: 12d5e1d5-4df0-4846-9452-6d0c3399f58c
 depends_on: ()
 save_screenshot: True
 save_som: False
@@ -94,14 +93,11 @@ stats.cum_n_token_last_action_error: 0
 stats.max_n_token_last_action_error: 0
 stats.cum_n_token_axtree_txt: 3564
 stats.max_n_token_axtree_txt: 3564
-stats.cum_n_token_pruned_html: 47971
-stats.max_n_token_pruned_html: 47971
-stats.cum_step_elapsed: 7.065083742141724
-stats.max_step_elapsed: 7.065083742141724
-stats.cum_agent_elapsed: 4.3881919384002686
-stats.max_agent_elapsed: 4.3881919384002686
+stats.cum_n_token_pruned_html: 47972
+stats.max_n_token_pruned_html: 47972
+stats.cum_step_elapsed: 7.226427316665649
+stats.max_step_elapsed: 7.226427316665649
+stats.cum_agent_elapsed: 5.079265117645264
+stats.max_agent_elapsed: 5.079265117645264
 terminated: True
 truncated: False
-Process completed successfully:
-None
-Task 23 only had 1 steps (< 3 required), skipping skill induction

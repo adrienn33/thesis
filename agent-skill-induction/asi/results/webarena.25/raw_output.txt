@@ -1,19 +1,19 @@
-2025-10-30 23:42:29,415 - 45220 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.25_16 in:
-  results/2025-10-30_23-42-29_DemoAgentArgs_on_webarena.25_16
-2025-10-30 23:42:29,416 - 45220 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
-2025-10-30 23:42:29,608 - 45220 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
-2025-10-30 23:42:29,608 - 45220 - agent - INFO - Connected to MCP server: magento-review-server
-2025-10-30 23:42:29,608 - 45220 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
-2025-10-30 23:42:29,788 - 45220 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
-2025-10-30 23:42:29,788 - 45220 - agent - INFO - Connected to MCP server: magento-product-server
+2025-11-12 15:28:34,620 - 44839 - browsergym.experiments.loop - INFO - Running experiment DemoAgentArgs_on_webarena.25_3 in:
+  results/2025-11-12_15-28-34_DemoAgentArgs_on_webarena.25_3
+2025-11-12 15:28:34,620 - 44839 - mcp_integration.client - INFO - Starting MCP server: magento-review-server
+2025-11-12 15:28:34,819 - 44839 - mcp_integration.client - INFO - Connected to MCP server magento-review-server with 2 tools
+2025-11-12 15:28:34,820 - 44839 - agent - INFO - Connected to MCP server: magento-review-server
+2025-11-12 15:28:34,820 - 44839 - mcp_integration.client - INFO - Starting MCP server: magento-product-server
+2025-11-12 15:28:35,015 - 44839 - mcp_integration.client - INFO - Connected to MCP server magento-product-server with 3 tools
+2025-11-12 15:28:35,015 - 44839 - agent - INFO - Connected to MCP server: magento-product-server
 /Users/christopher.mason/wsu/thesis_v3/agent-skill-induction/asi/venv/lib/python3.13/site-packages/beartype/_util/hint/pep/utilpeptest.py:345: BeartypeDecorHintPep585DeprecationWarning: PEP 484 type hint typing.Mapping[str, gymnasium.spaces.space.Space[typing.Any]] deprecated by PEP 585 scheduled for removal in the first Python version released after October 5th, 2025. To resolve this, import this hint from "beartype.typing" rather than "typing". See this discussion for further details and alternatives:
     https://github.com/beartype/beartype#pep-585-deprecations
   warn(
-2025-10-30 23:42:41,429 - 45220 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-10-30 23:42:41,531 - 45220 - browsergym.experiments.loop - INFO - action:
-I need to find reviewers who mention "average print quality" for this Epson printer. Let me use the MCP tool to retrieve all reviews for this product first.
+2025-11-12 15:28:46,575 - 44839 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-12 15:28:46,678 - 44839 - browsergym.experiments.loop - INFO - action:
+I need to find reviewers who mention "average print quality" for this Epson printer product. Let me use the MCP tool to retrieve all reviews for this product first.
 
-The product SKU is "B00JXLGF06" as shown on the page. I'll retrieve all reviews and then filter for those mentioning "average print quality".
+The product SKU is "B00JXLGF06" as shown in the page. I'll retrieve all reviews and then filter for those mentioning "average print quality".
 
 ```
 # Get all reviews for this product using the SKU
@@ -44,14 +44,14 @@ else:
     send_msg_to_user("No reviewers found who mention 'average print quality' for this product.")
 ```
 
-2025-10-30 23:42:42,414 - 45220 - browsergym.experiments.loop - INFO - Saving summary info.
+2025-11-12 15:28:47,602 - 44839 - browsergym.experiments.loop - INFO - Saving summary info.
 --- WARNING ---
 This is a basic agent for demo purposes.
 Visit AgentLab for more capable agents with advanced features.
 https://github.com/ServiceNow/AgentLab
 Loaded MCP configuration from config_files/25-mcp-container.json
 Found 2 MCP servers: ['magento-review-server', 'magento-product-server']
-exp_dir: results/2025-10-30_23-42-29_DemoAgentArgs_on_webarena.25_16
+exp_dir: results/2025-11-12_15-28-34_DemoAgentArgs_on_webarena.25_3
 agent_args.agent_name: DemoAgentArgs
 agent_args.model_name: claude-haiku-4-5
 agent_args.chat_mode: False
@@ -64,7 +64,7 @@ agent_args.actions: ()
 agent_args.memory: None
 agent_args.mcp_servers: [{'name': 'magento-review-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_review_data.py']}, {'name': 'magento-product-server', 'command': ['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_products.py']}]
 env_args.task_name: webarena.25
-env_args.task_seed: 16
+env_args.task_seed: 3
 env_args.max_steps: 10
 env_args.headless: True
 env_args.record_video: False
@@ -73,14 +73,14 @@ env_args.viewport: None
 env_args.slow_mo: None
 env_args.storage_state: None
 env_args.task_kwargs: None
-exp_name: DemoAgentArgs_on_webarena.25_16
+exp_name: DemoAgentArgs_on_webarena.25_3
 enable_debug: True
 err_msg: None
 stack_trace: None
 order: None
 logging_level: 20
 logging_level_stdout: 20
-exp_id: 5c1facda-e919-49be-9bbd-9356fc082882
+exp_id: a667139d-ea3b-4d7a-9a8c-464cb108023a
 depends_on: ()
 save_screenshot: True
 save_som: False
@@ -94,14 +94,11 @@ stats.cum_n_token_last_action_error: 0
 stats.max_n_token_last_action_error: 0
 stats.cum_n_token_axtree_txt: 6485
 stats.max_n_token_axtree_txt: 6485
-stats.cum_n_token_pruned_html: 58687
-stats.max_n_token_pruned_html: 58687
-stats.cum_step_elapsed: 6.883436918258667
-stats.max_step_elapsed: 6.883436918258667
-stats.cum_agent_elapsed: 4.645781993865967
-stats.max_agent_elapsed: 4.645781993865967
+stats.cum_n_token_pruned_html: 58673
+stats.max_n_token_pruned_html: 58673
+stats.cum_step_elapsed: 7.17089319229126
+stats.max_step_elapsed: 7.17089319229126
+stats.cum_agent_elapsed: 4.275789976119995
+stats.max_agent_elapsed: 4.275789976119995
 terminated: True
 truncated: False
-Process completed successfully:
-None
-Task 25 only had 1 steps (< 3 required), skipping skill induction

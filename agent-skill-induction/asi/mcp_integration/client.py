@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 @dataclass
 class MCPServerConfig:
@@ -123,19 +124,27 @@ class MCPClient:
         
         response = self._send_request(request)
         
+        logger.debug(f"MCP response keys: {response.keys()}")
+        
         if "error" in response:
             raise RuntimeError(f"Tool execution error: {response['error']}")
         
         # Extract result from response content
         content = response.get("content", [])
+        
         if content and content[0].get("type") == "text":
             try:
                 # Try to parse JSON result
-                return json.loads(content[0]["text"])
-            except json.JSONDecodeError:
+                text = content[0]["text"]
+                result = json.loads(text)
+                logger.debug(f"MCP tool returned {type(result)} with {len(result) if isinstance(result, (list,dict)) else 'N/A'} items")
+                return result
+            except json.JSONDecodeError as e:
                 # Return raw text if not JSON
+                logger.debug(f"MCP JSON parse failed, returning raw text")
                 return content[0]["text"]
         
+        logger.warning("MCP no valid content, returning None")
         return None
 
 class MCPToolWrapper:
