@@ -1,0 +1,17 @@
+{
+  "task_id": "22",
+  "experiment_type": "asi",
+  "website": "shopping",
+  "mcp_enabled": true,
+  "task_execution": {
+    "success": true,
+    "reward": 1.0,
+    "steps": 1,
+    "total_steps": 2,
+    "elapsed_time": 8.018086910247803,
+    "agent_elapsed_time": 4.628708839416504,
+    "terminated": true,
+    "truncated": false,
+    "error": null
+  }
+}

@@ -892,7 +892,7 @@ def get_skills():
         
         # Parse out individual skills (functions)
         import re
-        function_pattern = r'def\s+(\w+)\s*\([^)]*\):\s*"""(.*?)"""'
+        function_pattern = r'def\s+(\w+)\s*\([^)]*\)\s*(?:->\s*[^:]+)?:\s*\n?\s*"""(.*?)"""'
         matches = re.findall(function_pattern, content, re.DOTALL)
         
         skills = []

@@ -42,6 +42,14 @@ def has_induced_actions(step_info, action_names: set) -> bool:
     if step_info.obs is None: return False
     return any([a in step_info.obs["last_action"] for a in action_names])
 
+def has_mcp_tool_calls(step_info) -> bool:
+    """Check if step uses MCP tools (magento_review_server or magento_product_server)."""
+    if step_info.obs is None: return False
+    last_action = step_info.obs["last_action"]
+    return ('magento_review_server' in last_action or 
+            'magento_product_server' in last_action or
+            '_mcp_tool' in last_action)
+
 
 SIMPLIFY_THOUGHT_INSTRUCTION = """You are a helpful assistant in summarizing web browsing actions. Your task is to summarize the main action taken and the corresponding state change, from the input thought process and environmental description. 
 
@@ -131,25 +139,27 @@ def main():
     step_dirs = [os.path.join(args.result_dir, sd) for sd in step_dirs]
     print(f"Found #{len(step_dirs)} steps in result dir {args.result_dir}.")
 
-    is_valid, is_state_change, is_induction = [], [], []
+    is_valid, is_state_change, is_induction, has_mcp = [], [], [], []
     last_step_info = None
     for i, sd in enumerate(step_dirs):
         step_info = pickle.load(gzip.open(sd, 'rb'))
         is_valid.append(is_valid_step(step_info))
         is_state_change.append(is_state_change_step(step_info, last_step_info))
         is_induction.append(has_induced_actions(step_info, args.action_names))
+        has_mcp.append(has_mcp_tool_calls(step_info))
 
         last_step_info = step_info
 
-    is_valid, is_state_change, is_induction = is_valid[1: ], is_state_change[1: ], is_induction[1: ]  # skip step 0
+    is_valid, is_state_change, is_induction, has_mcp = is_valid[1: ], is_state_change[1: ], is_induction[1: ], has_mcp[1: ]  # skip step 0
     print(f"Valid Steps ({sum(is_valid)}/{len(step_dirs)}): ", is_valid)
     print(f"State Change ({sum(is_state_change)}/{len(step_dirs)}): ", is_state_change)
     print(f"Action Induced ({sum(is_induction)}/{len(step_dirs)}): ", is_induction)
+    print(f"MCP Tool Used ({sum(has_mcp)}/{len(step_dirs)}): ", has_mcp)
 
-    # check if at least one step calls induced action, must be valid and cause state change
+    # check if at least one step calls induced action OR uses MCP tools, must be valid and cause state change
     pass_checks = False
-    for v, s, i in zip(is_valid, is_state_change, is_induction):
-        if i:  # step with induced action
+    for v, s, i, m in zip(is_valid, is_state_change, is_induction, has_mcp):
+        if i or m:  # step with induced action OR MCP tool usage
             if (v and s): 
                 pass_checks = True
                 break

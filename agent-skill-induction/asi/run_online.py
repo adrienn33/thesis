@@ -5,6 +5,44 @@ import subprocess
 from subprocess import Popen
 from pathlib import Path
 
+def generate_research_metrics(task_id: str, experiment_type: str, website: str):
+    """Generate research_metrics.json from existing summary_info.json"""
+    result_dir = f"results/webarena.{task_id}"
+    summary_path = f"{result_dir}/summary_info.json"
+    
+    if not os.path.exists(summary_path):
+        print(f"Warning: {summary_path} not found, skipping metrics generation")
+        return
+    
+    summary = json.load(open(summary_path, 'r'))
+    
+    mcp_config_exists = os.path.exists(f"config_files/{task_id}-mcp-container.json")
+    
+    research_metrics = {
+        "task_id": task_id,
+        "experiment_type": experiment_type,
+        "website": website,
+        "mcp_enabled": mcp_config_exists,
+        
+        "task_execution": {
+            "success": summary.get("cum_reward", 0) >= 1.0,
+            "reward": summary.get("cum_reward", 0),
+            "steps": summary.get("n_steps", 0),
+            "total_steps": summary.get("stats.cum_steps", 0),
+            "elapsed_time": summary.get("stats.cum_step_elapsed", 0),
+            "agent_elapsed_time": summary.get("stats.cum_agent_elapsed", 0),
+            "terminated": summary.get("terminated", False),
+            "truncated": summary.get("truncated", False),
+            "error": summary.get("err_msg", None)
+        }
+    }
+    
+    output_path = f"{result_dir}/research_metrics.json"
+    with open(output_path, 'w') as f:
+        json.dump(research_metrics, f, indent=2)
+    
+    print(f"[Metrics] Generated {output_path}")
+
 # Load environment variables from .env file if it exists
 def load_env_file():
     env_file = Path(__file__).parent / '.env'
@@ -160,8 +198,8 @@ def run_asi():
             continue
         
         summary = json.load(open(path, 'r'))
-        if summary["n_steps"] < 3: 
-            print(f"Task {tid} only had {summary['n_steps']} steps (< 3 required), skipping skill induction")
+        if summary["n_steps"] < 1: 
+            print(f"Task {tid} only had {summary['n_steps']} steps (< 1 required), skipping skill induction")
             continue
         
         # Check if task was successful based on reward
@@ -208,6 +246,9 @@ def run_asi():
             if stderr:
                 print(f"[ASI] Partial stderr:\n{stderr.decode() if isinstance(stderr, bytes) else stderr}")
         # input("[3] Completed induced workflow")
+        
+        # Generate research metrics after task completion
+        generate_research_metrics(tid, "asi", args.website)
 
         # intermediate supervision
         # cont = input("Continue? (y/n)")
@@ -249,7 +290,7 @@ def run_veri_program():
         if not os.path.exists(path):
             print(f"Warning: {path} not found, skipping task {tid}")
             continue
-        if json.load(open(path, 'r'))["n_steps"] < 3: continue
+        if json.load(open(path, 'r'))["n_steps"] < 1: continue
 
         # step 2: eval traj
         process = Popen([
@@ -332,7 +373,7 @@ def run_mem_asi():
         if not os.path.exists(path):
             print(f"Warning: {path} not found, skipping task {tid}")
             continue
-        if json.load(open(path, 'r'))["n_steps"] < 3: continue
+        if json.load(open(path, 'r'))["n_steps"] < 1: continue
 
         # step 2: eval traj
         process = Popen([

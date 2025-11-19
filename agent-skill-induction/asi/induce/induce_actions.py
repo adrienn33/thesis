@@ -86,9 +86,14 @@ def get_test_query(result_dir_list: str, config_dir: str) -> str:
 
 
 def induce_actions() -> list[str] | None:
+    print(f"[INDUCE] Starting action induction...")
     result_dir_list = get_result_dirs(args.results_dir, args.result_id_list, args.template_id, args.config_dir)
+    print(f"[INDUCE] Found {len(result_dir_list)} result directories: {result_dir_list}")
     test_query = get_test_query(result_dir_list, args.config_dir)
-    if test_query is None: return []
+    if test_query is None:
+        print(f"[INDUCE] ERROR: test_query is None, returning empty list")
+        return []
+    print(f"[INDUCE] Generated test query ({len(test_query)} chars)")
     with open(args.test_query_path, 'w') as fw: fw.write(test_query)
 
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
@@ -105,7 +110,7 @@ def induce_actions() -> list[str] | None:
         user_messages = [msg for msg in messages if msg["role"] == "user"]
         for i in range(args.num_responses):
             response = client.messages.create(
-                model="claude-3-7-sonnet-20250219",
+                model="claude-haiku-4-5",
                 max_tokens=4096,
                 temperature=args.temperature,
                 system=system_msg,
@@ -158,6 +163,9 @@ def induce_actions() -> list[str] | None:
             with open(curr_path, 'w') as fw:
                 fw.write(test_query + '\n\n\n' + curr_resp)
             all_responses.append(curr_resp)
+    print(f"[INDUCE] Generated {len(all_responses)} responses")
+    for i, resp in enumerate(all_responses):
+        print(f"[INDUCE] Response {i}: {len(resp)} chars")
     return all_responses
 
 
@@ -225,12 +233,15 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         
         # write test script
         script_content.append(f"# Run test for task {r}")
+        task_id = r.split('_')[0]
+        config_file = f"config_files/{task_id}-mcp-container.json"
         script_content.append(
             # f"python run_demo.py --websites {args.website} --headless "
             f"python run_demo.py --websites {args.website} "
-            f"--task_name webarena.{r.split('_')[0]} "
+            f"--task_name webarena.{task_id} "
             f"--action_path {test_path} "
-            f"--rename_to webarena.{r.split('_')[0]}_test",
+            f"--mcp_config {config_file} "
+            f"--rename_to webarena.{task_id}_test",
         )
         script_content.append("\n")
     
@@ -336,7 +347,7 @@ if __name__ == "__main__":
 
     # decide model name
     if args.model == "claude":
-        args.model = "claude-3-7-sonnet-20250219"
+        args.model = "claude-haiku-4-5"
     # args.model = args.model.replace("litellm", "openai")
 
     # decide path to write actions
@@ -348,14 +359,26 @@ if __name__ == "__main__":
     if os.path.exists(args.output_dir):
         print(f"Output directory already exists: {args.output_dir}")
         names = sorted(os.listdir(args.output_dir), key=lambda x: int(x.split('.')[0]))
+        print(f"Found {len(names)} existing response files: {names}")
         paths = [os.path.join(args.output_dir, f) for f in names]
         responses = [open(p, 'r').read() for p in paths]
+        if len(responses) == 0:
+            print(f"WARNING: Output directory exists but contains no response files. Re-running induction...")
+            responses = induce_actions()
     else:  # induce new actions
+        print(f"Creating new output directory: {args.output_dir}")
         os.makedirs(args.output_dir, exist_ok=True)
         responses = induce_actions()
     
     # write actions and run tests
     print(f"Collected {len(responses)} Responses..")
+    if len(responses) == 0:
+        print(f"ERROR: No responses generated. Check if test_query was created and LLM call succeeded.")
+        print(f"Test query path: {args.test_query_path}")
+        if os.path.exists(args.test_query_path):
+            print(f"Test query exists ({os.path.getsize(args.test_query_path)} bytes)")
+        else:
+            print(f"Test query file NOT FOUND!")
     for i, resp in enumerate(responses):
         print(f"\n\n** Start Evaluating Response {i}: ", resp, "**")
         tmp_path, action_names = write_actions(resp)

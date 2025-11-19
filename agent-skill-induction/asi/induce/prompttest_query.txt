@@ -1,10 +1,6 @@
-## Task: Today is 6/12/2023. Tell me how many fulfilled orders I have {{period}}, and the total amount of money I spent.
-### Example 1 (47): Today is 6/12/2023. Tell me how many fulfilled orders I have over the past month, and the total amount of money I spent.
-Clicked the "My Account" link to access the account section where order information can be viewed.
-```click('227')```
-Clicked the "View All" link to access the complete order history and identify all fulfilled orders from the specified date range (5/12/2023 to 6/12/2023).
-```click('1416')```
-Adjusted the orders display to show more items per page to efficiently review all 37 orders and identify those from 5/12/2023 to 6/12/2023 with "Complete" status for total amount calculation.
-```select_option('1509', '50')```
-Analyzed the orders table and filtered for fulfilled orders from the past month (5/13/2023 to 6/12/2023). Found that there are no orders with "Complete" status within this date range. The only order in the specified period (000000170 from 5/17/23 for $365.42) has a "Canceled" status, so the total amount for fulfilled orders in the past month is $0.
-```send_msg_to_user("Based on the order history displayed, over the past month (from approximately 5/12/2023 to 6/12/2023), you have 0 fulfilled orders. The only order placed during this period was Order #000000170 on 5/17/23 for $365.42, but it has a status of 'Canceled', not 'Complete'. Therefore, the total amount spent on fulfilled orders in the past month is $0.00.")```
+## Task: List out reviewers, if exist, who mention about {{description}}
+### Example 1 (24): List out reviewers, if exist, who mention about price being unfair
+Clicked on the search or retrieval function to fetch all reviews for the product with SKU "B002C1B1YY" in order to identify reviewers who mention unfair pricing.
+```magento_review_server_get_product_reviews("B002C1B1YY")```
+Analyzed the retrieved reviews for product SKU B002C1B1YY and determined that neither of the two reviews (by Jay and Josef Bürger) contained mentions of unfair pricing.
+```send_msg_to_user("Based on my review of all available reviews for this product (SKU: B002C1B1YY), there are 2 reviews total:\n\n1. Reviewer: Jay - Title: 'Wonderful!' - No mention of unfair pricing\n2. Reviewer: Josef Bürger - Title: 'Joe' - No mention of unfair pricing\n\nConclusion: No reviewers mention about price being unfair for this product.")```

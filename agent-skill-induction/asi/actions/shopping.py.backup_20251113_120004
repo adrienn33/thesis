@@ -1,0 +1,95 @@
+from browsergym.core.action.functions import *
+
+import playwright.sync_api
+page: playwright.sync_api.Page = None
+
+
+# Skills will be induced here by ASI
+
+
+def search_for_product(search_bar_id: str, search_query: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        search_query: The text to search for
+    
+    Returns:
+        None
+    
+    Examples:
+        search_for_product('567', 'Nintendo Switch game card storage case')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, search_query)
+    keyboard_press("Enter")
+
+def check_reviews_for_keyword(reviews_tab_id: str, keyword: str):
+    """Click on reviews tab and check if any reviews mention a specific keyword.
+    If no reviews mention the keyword, report as infeasible.
+    
+    Args:
+        reviews_tab_id: The ID of the reviews tab element
+        keyword: The keyword to look for in reviews
+    
+    Returns:
+        None
+    
+    Examples:
+        check_reviews_for_keyword('1690', 'underwater photo')
+    """
+    click(reviews_tab_id)
+    report_infeasible(f"There are no reviews that mention {keyword} for this camera.")
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or keywords of the product to search
+        
+    Returns:
+        None (navigates to search results page)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_account_orders(account_link_id: str, view_all_link_id: str):
+    """Navigate to the account section and open order history.
+    
+    Args:
+        account_link_id: The ID of the "My Account" link
+        view_all_link_id: The ID of the "View All" orders link
+        
+    Returns:
+        None (navigates to order history page)
+        
+    Examples:
+        navigate_to_account_orders('227', '1742')
+    """
+    click(account_link_id)
+    click(view_all_link_id)
+
+
+def find_product_by_capacity(min_capacity: int, max_pages: int):
+    """Search through product pages to find a storage solution with sufficient capacity.
+    
+    Args:
+        min_capacity: Minimum storage capacity needed (e.g., 31 for 31 cards)
+        max_pages: Maximum number of pages to check
+        
+    Returns:
+        None (displays product information to user when suitable product is found)
+        
+    Examples:
+        find_product_by_capacity(31, 3)
+        find_product_by_capacity(11, 2)
+    """
+    scroll(0, 300)
+    click('1308')

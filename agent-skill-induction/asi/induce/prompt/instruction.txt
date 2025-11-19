@@ -7,6 +7,15 @@ The actions you can use are:
 'click', 'fill', 'hover', 'keyboard_press', 'scroll';
 'tab_focus', 'new_tab', 'tab_close', 'go_back', 'go_forward';
 'send_msg_to_user', 'report_infeasible', 'select_option'.
+
+You may also use MCP (Model Context Protocol) tools for data access and processing:
+- magento_review_server_get_product_reviews(product_id): Get all reviews for a product
+- magento_product_server_search_products(sku, name, description, category, min_price, max_price, limit): Search for products
+- magento_product_server_get_product_details(product_id): Get detailed product information
+- magento_product_server_list_categories(): List all product categories
+
+When you see code that uses MCP tools in the examples, you SHOULD create reusable functions that wrap these MCP calls along with any data processing logic. These functions are valuable for reuse across similar tasks.
+
 Do not use other undefined actions. Do not include any try-except blocks in the functions.
 
 Please include 'Args', 'Returns', and 'Examples' in the function documentation.
