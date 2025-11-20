@@ -13,12 +13,12 @@
     "stats.max_n_token_last_action_output": 0,
     "stats.cum_n_token_axtree_txt": 3336,
     "stats.max_n_token_axtree_txt": 3336,
-    "stats.cum_n_token_pruned_html": 48437,
-    "stats.max_n_token_pruned_html": 48437,
-    "stats.cum_step_elapsed": 7.5875349044799805,
-    "stats.max_step_elapsed": 7.5875349044799805,
-    "stats.cum_agent_elapsed": 4.496811866760254,
-    "stats.max_agent_elapsed": 4.496811866760254,
+    "stats.cum_n_token_pruned_html": 48440,
+    "stats.max_n_token_pruned_html": 48440,
+    "stats.cum_step_elapsed": 7.854539155960083,
+    "stats.max_step_elapsed": 7.854539155960083,
+    "stats.cum_agent_elapsed": 4.569951772689819,
+    "stats.max_agent_elapsed": 4.569951772689819,
     "terminated": true,
     "truncated": false
 }
