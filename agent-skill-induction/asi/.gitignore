@@ -12,3 +12,13 @@ demo_agent/outputs
 
 # Saved task runs (local storage)
 saved_runs/
+
+# Results directory (ignore everything except calc_valid_steps.py)
+results/*
+!results/calc_valid_steps.py
+
+# Raw data
+raw_data/
+
+# Outputs
+outputs/

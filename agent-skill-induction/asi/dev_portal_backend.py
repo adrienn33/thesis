@@ -236,9 +236,9 @@ def reconnect_server(server_name):
 def run_test(test_name):
     """Run test scripts and stream output"""
     if test_name == 'quick':
-        script = 'test_mcp_server.py'
+        script = 'claude_utils/test_mcp_server.py'
     elif test_name == 'full':
-        script = 'test_magento_mcp.py'
+        script = 'claude_utils/test_magento_mcp.py'
     else:
         return jsonify({'error': 'Invalid test name'}), 400
     
@@ -318,7 +318,7 @@ def run_task():
         return jsonify({'error': f'Config file not found: {config_file}'}), 404
     
     cmd = [
-        'python3', 'run_demo.py',
+        'venv/bin/python3', 'run_demo.py',
         '--task_name', f'webarena.{task_name}',
         '--websites', website
     ]
@@ -334,7 +334,7 @@ def run_task():
         if use_asi:
             yield '[ASI] Running task with Agent Skill Induction enabled...\n'
             proc = subprocess.Popen(
-                ['python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
+                ['venv/bin/python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -927,19 +927,12 @@ page: playwright.sync_api.Page = None
         
         shopping_py_path = Path(__file__).parent / 'actions' / 'shopping.py'
         
-        # Backup current file
-        backup_path = Path(__file__).parent / 'actions' / f'shopping.py.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-        if shopping_py_path.exists():
-            import shutil
-            shutil.copy(shopping_py_path, backup_path)
-            logger.info(f"Backed up current shopping.py to {backup_path}")
-        
         # Write initial state
         with open(shopping_py_path, 'w') as f:
             f.write(initial_shopping_py)
         
         logger.info("Reset shopping.py to initial state")
-        return jsonify({'success': True, 'message': 'Skill library reset to initial state', 'backup': backup_path.name})
+        return jsonify({'success': True, 'message': 'Skill library reset to initial state'})
     except Exception as e:
         logger.error(f"Error resetting skills: {e}")
         return jsonify({'error': str(e)}), 500
@@ -1010,7 +1003,7 @@ def run_batch_tasks():
                     continue
                 
                 cmd = [
-                    'python3', 'run_demo.py',
+                    'venv/bin/python3', 'run_demo.py',
                     '--task_name', f'webarena.{task_id}',
                     '--websites', website
                 ]
