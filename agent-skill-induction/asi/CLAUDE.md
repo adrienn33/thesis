@@ -185,6 +185,25 @@ __main__._mcp_tool_wrappers exists: True
 
 **Note:** Virtual environment not required - tests run servers inside Docker container which has all dependencies.
 
+### Debugging Task Execution
+
+To inspect the detailed step data from a task execution:
+```bash
+python3 claude_utils/examine_pickle.py results/webarena.21/step_1.pkl.gz
+```
+
+**What it shows:**
+- Action taken by agent
+- Observation received (including errors)
+- Reward and other metadata
+- Last action error messages (if any)
+
+**Use cases:**
+- Debug why an action failed
+- Understand what the agent saw at each step
+- Inspect error messages from the environment
+- Analyze agent behavior for specific tasks
+
 ## Container Dependencies
 
 **Currently installed in container:**
@@ -218,6 +237,9 @@ Container exposes:
 - `test_magento_mcp.py` - Full integration test for all MCP tools
 - `test_agent_mcp_execution.py` - Tests MCP function execution in agent environment
 - `test_mcp_in_task.py` - Tests MCP tool availability during task execution
+
+### Debugging Utilities (in `claude_utils/`)
+- `examine_pickle.py` - Inspect WebArena experiment result files (step data)
 
 ### Documentation
 - `proposed_mcp_actions.md` - Defines all MCP actions (some commented out for Phase 1)
