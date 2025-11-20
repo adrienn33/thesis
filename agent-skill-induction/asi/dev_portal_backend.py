@@ -318,7 +318,7 @@ def run_task():
         return jsonify({'error': f'Config file not found: {config_file}'}), 404
     
     cmd = [
-        'python3', 'run_demo.py',
+        'venv/bin/python3', 'run_demo.py',
         '--task_name', f'webarena.{task_name}',
         '--websites', website
     ]
@@ -334,7 +334,7 @@ def run_task():
         if use_asi:
             yield '[ASI] Running task with Agent Skill Induction enabled...\n'
             proc = subprocess.Popen(
-                ['python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
+                ['venv/bin/python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -1003,7 +1003,7 @@ def run_batch_tasks():
                     continue
                 
                 cmd = [
-                    'python3', 'run_demo.py',
+                    'venv/bin/python3', 'run_demo.py',
                     '--task_name', f'webarena.{task_id}',
                     '--websites', website
                 ]

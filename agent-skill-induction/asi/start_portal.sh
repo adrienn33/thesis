@@ -33,8 +33,7 @@ echo "Press Ctrl+C to stop both services"
 echo ""
 
 # Start backend in background
-source venv/bin/activate
-python3 dev_portal_backend.py &
+venv/bin/python3 dev_portal_backend.py &
 BACKEND_PID=$!
 
 # Wait for backend to start
