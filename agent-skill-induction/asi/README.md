@@ -1,6 +1,6 @@
 ## README
 
-# Proposed MCP Actions
+# MCP Actions
 
 ## User Account Management
 
@@ -43,7 +43,3 @@
 
 23. **get_product_reviews** - Retrieve all reviews for a specific product (308,940+ reviews exist in the system)
 24. **create_review** - Submit a review for a product including title, detail text, and nickname. Does not require user authentication (customer_id can be NULL)
-
-
-
-Idea: Build in no-op tools so the agent actually has to choose
