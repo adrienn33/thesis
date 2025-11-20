@@ -18,11 +18,22 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
     
     mcp_config_exists = os.path.exists(f"config_files/{task_id}-mcp-container.json")
     
+    strategy = _determine_strategy(result_dir)
+    mcp_connected = _check_mcp_connected(result_dir)
+    mcp_calls = _check_mcp_calls(result_dir)
+    browser_actions = _check_browser_actions(result_dir)
+    skill_induction = _check_skill_induction(result_dir)
+    
     research_metrics = {
         "task_id": task_id,
         "experiment_type": experiment_type,
         "website": website,
         "mcp_enabled": mcp_config_exists,
+        "mcp_connected": mcp_connected,
+        "mcp_calls": mcp_calls,
+        "browser_actions": browser_actions,
+        "skill_induction": skill_induction,
+        "strategy": strategy,
         
         "task_execution": {
             "success": summary.get("cum_reward", 0) >= 1.0,
@@ -42,6 +53,110 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
         json.dump(research_metrics, f, indent=2)
     
     print(f"[Metrics] Generated {output_path}")
+
+def _determine_strategy(result_dir: str) -> str:
+    """Determine strategy based on action types in cleaned_steps.json or raw_output.txt"""
+    cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    content = None
+    
+    if os.path.exists(cleaned_steps_path):
+        with open(cleaned_steps_path) as f:
+            steps = json.load(f)
+            content = " ".join(steps)
+    elif os.path.exists(raw_output_path):
+        with open(raw_output_path) as f:
+            content = f.read()
+    else:
+        return "unknown"
+    
+    has_mcp = False
+    has_browser = False
+    content_lower = content.lower()
+    
+    if 'magento_' in content or '_server_' in content:
+        has_mcp = True
+    
+    browser_keywords = ['click(', 'fill(', 'goto(', 'scroll(', 'type(', 
+                       'press(', 'select(', 'hover(', 'check(']
+    if any(keyword in content_lower for keyword in browser_keywords):
+        has_browser = True
+    
+    if has_mcp and has_browser:
+        return "hybrid"
+    elif has_mcp:
+        return "mcp"
+    elif has_browser:
+        return "browser"
+    else:
+        return "unknown"
+
+def _check_mcp_connected(result_dir: str) -> bool:
+    """Check if MCP server successfully connected by looking for connection message"""
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    if not os.path.exists(raw_output_path):
+        return False
+    
+    with open(raw_output_path) as f:
+        content = f.read()
+    
+    return "Connected to MCP server" in content
+
+def _check_mcp_calls(result_dir: str) -> bool:
+    """Check if MCP tools were actually called during execution"""
+    cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    content = None
+    
+    if os.path.exists(cleaned_steps_path):
+        with open(cleaned_steps_path) as f:
+            steps = json.load(f)
+            content = " ".join(steps)
+    elif os.path.exists(raw_output_path):
+        with open(raw_output_path) as f:
+            content = f.read()
+    else:
+        return False
+    
+    return 'magento_' in content or '_server_' in content
+
+def _check_browser_actions(result_dir: str) -> bool:
+    """Check if browser actions were used during execution"""
+    cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    content = None
+    
+    if os.path.exists(cleaned_steps_path):
+        with open(cleaned_steps_path) as f:
+            steps = json.load(f)
+            content = " ".join(steps)
+    elif os.path.exists(raw_output_path):
+        with open(raw_output_path) as f:
+            content = f.read()
+    else:
+        return False
+    
+    content_lower = content.lower()
+    browser_keywords = ['click(', 'fill(', 'goto(', 'scroll(', 'type(', 
+                       'press(', 'select(', 'hover(', 'check(']
+    
+    return any(keyword in content_lower for keyword in browser_keywords)
+
+def _check_skill_induction(result_dir: str) -> bool:
+    """Check if skill induction was attempted by looking for start message"""
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    if not os.path.exists(raw_output_path):
+        return False
+    
+    with open(raw_output_path) as f:
+        content = f.read()
+    
+    return "Starting skill induction for task" in content
 
 # Load environment variables from .env file if it exists
 def load_env_file():
