@@ -7,6 +7,10 @@
   "mcp_calls": true,
   "browser_actions": false,
   "skill_induction": false,
+  "skills_induced_count": 0,
+  "skills_induced_names": [],
+  "skills_reused_count": 0,
+  "skills_reused_names": [],
   "strategy": "mcp",
   "task_execution": {
     "success": false,

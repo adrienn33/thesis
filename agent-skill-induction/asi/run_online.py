@@ -23,6 +23,7 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
     mcp_calls = _check_mcp_calls(result_dir)
     browser_actions = _check_browser_actions(result_dir)
     skill_induction = _check_skill_induction(result_dir)
+    skill_details = _extract_skill_details(result_dir, website)
     
     research_metrics = {
         "task_id": task_id,
@@ -33,6 +34,10 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
         "mcp_calls": mcp_calls,
         "browser_actions": browser_actions,
         "skill_induction": skill_induction,
+        "skills_induced_count": skill_details["skills_induced_count"],
+        "skills_induced_names": skill_details["skills_induced_names"],
+        "skills_reused_count": skill_details["skills_reused_count"],
+        "skills_reused_names": skill_details["skills_reused_names"],
         "strategy": strategy,
         
         "task_execution": {
@@ -157,6 +162,64 @@ def _check_skill_induction(result_dir: str) -> bool:
         content = f.read()
     
     return "Starting skill induction for task" in content
+
+def _extract_skill_details(result_dir: str, website: str) -> dict:
+    """Extract detailed skill information including counts and names"""
+    import re
+    
+    skill_details = {
+        "skills_induced_count": 0,
+        "skills_induced_names": [],
+        "skills_reused_count": 0,
+        "skills_reused_names": []
+    }
+    
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    actions_file = f"actions/{website}.py"
+    
+    if not os.path.exists(raw_output_path):
+        return skill_details
+    
+    with open(raw_output_path) as f:
+        content = f.read()
+    
+    induced_match = re.search(r'Induced #(\d+)\|(\d+) Actions.*?\[(.*?)\].*?\[(.*?)\]', content, re.DOTALL)
+    if induced_match:
+        skill_details["skills_induced_count"] = int(induced_match.group(1))
+        names_str = induced_match.group(4)
+        if names_str:
+            skill_details["skills_induced_names"] = [n.strip().strip("'\"") for n in names_str.split(',') if n.strip()]
+    
+    if os.path.exists(actions_file):
+        with open(actions_file) as f:
+            actions_content = f.read()
+        
+        function_pattern = r'def\s+(\w+)\s*\('
+        all_defined_functions = re.findall(function_pattern, actions_content)
+        all_defined_functions = [f for f in all_defined_functions if f not in ['main', '__init__']]
+        
+        cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+        raw_output_available = os.path.exists(raw_output_path)
+        
+        trajectory_text = ""
+        if os.path.exists(cleaned_steps_path):
+            with open(cleaned_steps_path) as f:
+                steps = json.load(f)
+            trajectory_text = " ".join(steps)
+        elif raw_output_available:
+            trajectory_text = content
+        
+        if trajectory_text:
+            reused_functions = []
+            for func_name in all_defined_functions:
+                func_call_pattern = func_name + r'\s*\('
+                if re.search(func_call_pattern, trajectory_text):
+                    reused_functions.append(func_name)
+            
+            skill_details["skills_reused_count"] = len(reused_functions)
+            skill_details["skills_reused_names"] = reused_functions
+    
+    return skill_details
 
 # Load environment variables from .env file if it exists
 def load_env_file():
