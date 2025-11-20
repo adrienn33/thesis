@@ -927,19 +927,12 @@ page: playwright.sync_api.Page = None
         
         shopping_py_path = Path(__file__).parent / 'actions' / 'shopping.py'
         
-        # Backup current file
-        backup_path = Path(__file__).parent / 'actions' / f'shopping.py.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-        if shopping_py_path.exists():
-            import shutil
-            shutil.copy(shopping_py_path, backup_path)
-            logger.info(f"Backed up current shopping.py to {backup_path}")
-        
         # Write initial state
         with open(shopping_py_path, 'w') as f:
             f.write(initial_shopping_py)
         
         logger.info("Reset shopping.py to initial state")
-        return jsonify({'success': True, 'message': 'Skill library reset to initial state', 'backup': backup_path.name})
+        return jsonify({'success': True, 'message': 'Skill library reset to initial state'})
     except Exception as e:
         logger.error(f"Error resetting skills: {e}")
         return jsonify({'error': str(e)}), 500
