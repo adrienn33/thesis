@@ -5,8 +5,15 @@ import subprocess
 from subprocess import Popen
 from pathlib import Path
 
-def generate_research_metrics(task_id: str, experiment_type: str, website: str):
-    """Generate research_metrics.json from existing summary_info.json"""
+def generate_research_metrics(task_id: str, experiment_type: str, website: str, task_index: int = 1):
+    """Generate research_metrics.json from existing summary_info.json
+    
+    Args:
+        task_id: Task ID (e.g., "22")
+        experiment_type: Experiment type (e.g., "asi")
+        website: Website name (e.g., "shopping")
+        task_index: Index of this task in a batch run (1-indexed, default=1)
+    """
     result_dir = f"results/webarena.{task_id}"
     summary_path = f"{result_dir}/summary_info.json"
     
@@ -24,12 +31,25 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
     browser_actions = _check_browser_actions(result_dir)
     skill_induction = _check_skill_induction(result_dir)
     skill_details = _extract_skill_details(result_dir, website)
+    action_counts = _count_actions(result_dir, website)
+    library_stats = _track_skill_library(result_dir, website, skill_details["skills_induced_names"])
+    skills_used = _track_skill_usage(result_dir, website)
+    
+    asi_enabled = skill_induction or skill_details["skills_induced_count"] > 0 or skill_details["skills_reused_count"] > 0
+    configuration = _determine_configuration(mcp_config_exists, asi_enabled)
     
     research_metrics = {
         "task_id": task_id,
+        "task_index": task_index,
         "experiment_type": experiment_type,
         "website": website,
-        "mcp_enabled": mcp_config_exists,
+        
+        "configuration": {
+            "name": configuration,
+            "mcp_enabled": mcp_config_exists,
+            "asi_enabled": asi_enabled
+        },
+        
         "mcp_connected": mcp_connected,
         "mcp_calls": mcp_calls,
         "browser_actions": browser_actions,
@@ -39,6 +59,16 @@ def generate_research_metrics(task_id: str, experiment_type: str, website: str):
         "skills_reused_count": skill_details["skills_reused_count"],
         "skills_reused_names": skill_details["skills_reused_names"],
         "strategy": strategy,
+        
+        "browser_action_count": action_counts["browser_action_count"],
+        "mcp_call_count": action_counts["mcp_call_count"],
+        "skill_call_count": action_counts["skill_call_count"],
+        
+        "skill_library_size_before": library_stats["size_before"],
+        "skill_library_size_after": library_stats["size_after"],
+        "new_skills_in_run": library_stats["new_skills"],
+        
+        "skills_used": skills_used,
         
         "task_execution": {
             "success": summary.get("cum_reward", 0) >= 1.0,
@@ -163,6 +193,151 @@ def _check_skill_induction(result_dir: str) -> bool:
     
     return "Starting skill induction for task" in content
 
+def _determine_configuration(mcp_enabled: bool, asi_enabled: bool) -> str:
+    """Determine configuration name based on MCP and ASI status
+    
+    Vanilla:  MCP -> Disabled, ASI -> Disabled
+    MCP:      MCP -> Enabled,  ASI -> Disabled
+    ASI:      MCP -> Disabled, ASI -> Enabled
+    MCP+ASI:  MCP -> Enabled,  ASI -> Enabled
+    """
+    if mcp_enabled and asi_enabled:
+        return "MCP+ASI"
+    elif mcp_enabled and not asi_enabled:
+        return "MCP"
+    elif not mcp_enabled and asi_enabled:
+        return "ASI"
+    else:
+        return "Vanilla"
+
+def _track_skill_usage(result_dir: str, website: str) -> list:
+    """Track which skills were used and how many times each was called"""
+    import re
+    
+    cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    actions_file = f"actions/{website}.py"
+    
+    trajectory_text = ""
+    if os.path.exists(cleaned_steps_path):
+        with open(cleaned_steps_path) as f:
+            steps = json.load(f)
+        trajectory_text = " ".join(steps)
+    elif os.path.exists(raw_output_path):
+        with open(raw_output_path) as f:
+            trajectory_text = f.read()
+    else:
+        return []
+    
+    if not os.path.exists(actions_file):
+        return []
+    
+    with open(actions_file) as f:
+        actions_content = f.read()
+    
+    function_pattern = r'def\s+(\w+)\s*\('
+    all_defined_functions = re.findall(function_pattern, actions_content)
+    all_defined_functions = [f for f in all_defined_functions if f not in ['main', '__init__']]
+    
+    skills_used = []
+    for func_name in all_defined_functions:
+        func_call_pattern = func_name + r'\s*\('
+        call_count = len(re.findall(func_call_pattern, trajectory_text))
+        
+        if call_count > 0:
+            skills_used.append({
+                "name": func_name,
+                "calls": call_count
+            })
+    
+    skills_used.sort(key=lambda x: x["calls"], reverse=True)
+    
+    return skills_used
+
+def _track_skill_library(result_dir: str, website: str, newly_induced_skills: list) -> dict:
+    """Track skill library size before/after task execution
+    
+    The library size is determined by counting functions in actions/{website}.py.
+    For tasks that induce skills, we need to determine the "before" state by 
+    subtracting the newly induced skills from the current library.
+    """
+    import re
+    
+    actions_file = f"actions/{website}.py"
+    
+    if not os.path.exists(actions_file):
+        return {
+            "size_before": 0,
+            "size_after": 0,
+            "new_skills": []
+        }
+    
+    with open(actions_file) as f:
+        actions_content = f.read()
+    
+    function_pattern = r'def\s+(\w+)\s*\('
+    all_functions = re.findall(function_pattern, actions_content)
+    all_functions = [f for f in all_functions if f not in ['main', '__init__']]
+    
+    current_library_size = len(all_functions)
+    num_newly_induced = len(newly_induced_skills)
+    
+    size_before = current_library_size - num_newly_induced
+    size_after = current_library_size
+    
+    return {
+        "size_before": size_before,
+        "size_after": size_after,
+        "new_skills": newly_induced_skills
+    }
+
+def _count_actions(result_dir: str, website: str) -> dict:
+    """Count browser actions, MCP calls, and skill calls in the trajectory"""
+    import re
+    
+    counts = {
+        "browser_action_count": 0,
+        "mcp_call_count": 0,
+        "skill_call_count": 0
+    }
+    
+    cleaned_steps_path = f"{result_dir}/cleaned_steps.json"
+    raw_output_path = f"{result_dir}/raw_output.txt"
+    
+    trajectory_text = ""
+    if os.path.exists(cleaned_steps_path):
+        with open(cleaned_steps_path) as f:
+            steps = json.load(f)
+        trajectory_text = " ".join(steps)
+    elif os.path.exists(raw_output_path):
+        with open(raw_output_path) as f:
+            trajectory_text = f.read()
+    else:
+        return counts
+    
+    browser_keywords = [r'click\(', r'fill\(', r'goto\(', r'scroll\(', r'type\(', 
+                       r'press\(', r'select\(', r'hover\(', r'check\(']
+    for keyword in browser_keywords:
+        counts["browser_action_count"] += len(re.findall(keyword, trajectory_text, re.IGNORECASE))
+    
+    mcp_pattern = r'magento_\w+_server_\w+\('
+    counts["mcp_call_count"] = len(re.findall(mcp_pattern, trajectory_text))
+    
+    actions_file = f"actions/{website}.py"
+    if os.path.exists(actions_file):
+        with open(actions_file) as f:
+            actions_content = f.read()
+        
+        function_pattern = r'def\s+(\w+)\s*\('
+        all_defined_functions = re.findall(function_pattern, actions_content)
+        all_defined_functions = [f for f in all_defined_functions if f not in ['main', '__init__']]
+        
+        for func_name in all_defined_functions:
+            func_call_pattern = func_name + r'\s*\('
+            counts["skill_call_count"] += len(re.findall(func_call_pattern, trajectory_text))
+    
+    return counts
+
 def _extract_skill_details(result_dir: str, website: str) -> dict:
     """Extract detailed skill information including counts and names"""
     import re
@@ -253,7 +428,7 @@ def parse_task_ids(task_id_str: str) -> list[str]:
 def run_vanilla():
     task_id_list = parse_task_ids(args.task_ids)
 
-    for tid in task_id_list:
+    for task_index, tid in enumerate(task_id_list, start=1):
         # step 1: task solving
         cmd = [
             "python3", "run_demo.py",
@@ -285,7 +460,7 @@ def run_vanilla():
 def run_awm():
     task_id_list = parse_task_ids(args.task_ids)
 
-    for tid in task_id_list:
+    for task_index, tid in enumerate(task_id_list, start=1):
         # step 1: task solving
         cmd = [
             "python3", "run_demo.py",
@@ -340,7 +515,7 @@ def run_awm():
 # %% ASI
 def run_asi():
     task_id_list = parse_task_ids(args.task_ids)
-    for tid in task_id_list:
+    for task_index, tid in enumerate(task_id_list, start=1):
         # step 1: task solving
         cmd = [
             "python3", "run_demo.py",
@@ -426,7 +601,7 @@ def run_asi():
         # input("[3] Completed induced workflow")
         
         # Generate research metrics after task completion
-        generate_research_metrics(tid, "asi", args.website)
+        generate_research_metrics(tid, "asi", args.website, task_index)
 
         # intermediate supervision
         # cont = input("Continue? (y/n)")
@@ -435,7 +610,7 @@ def run_asi():
 # %% Verified, Program
 def run_veri_program():
     task_id_list = parse_task_ids(args.task_ids)
-    for tid in task_id_list:
+    for task_index, tid in enumerate(task_id_list, start=1):
         # step 1: task solving with memory input
         cmd = [
             "python3", "run_demo.py", "--headless",
@@ -517,7 +692,7 @@ def run_veri_program():
 
 def run_mem_asi():
     task_id_list = parse_task_ids(args.task_ids)
-    for tid in task_id_list:
+    for task_index, tid in enumerate(task_id_list, start=1):
         # step 1: task solving
         cmd = [
             "python3", "run_demo.py",

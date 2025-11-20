@@ -1,8 +1,13 @@
 {
   "task_id": "21",
+  "task_index": 1,
   "experiment_type": "asi",
   "website": "shopping",
-  "mcp_enabled": true,
+  "configuration": {
+    "name": "MCP",
+    "mcp_enabled": true,
+    "asi_enabled": false
+  },
   "mcp_connected": true,
   "mcp_calls": true,
   "browser_actions": false,
@@ -12,6 +17,13 @@
   "skills_reused_count": 0,
   "skills_reused_names": [],
   "strategy": "mcp",
+  "browser_action_count": 0,
+  "mcp_call_count": 1,
+  "skill_call_count": 0,
+  "skill_library_size_before": 5,
+  "skill_library_size_after": 5,
+  "new_skills_in_run": [],
+  "skills_used": [],
   "task_execution": {
     "success": false,
     "reward": 0.0,
