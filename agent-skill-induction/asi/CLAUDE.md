@@ -66,10 +66,12 @@ When adding a new MCP server, you MUST update `patch_with_custom_exec.py` to mak
 
 ## Testing
 
+All test scripts are located in the `claude_utils/` directory.
+
 ### Quick Test (Smoke Test)
 Tests that servers start and respond:
 ```bash
-python3 test_mcp_server.py
+python3 claude_utils/test_mcp_server.py
 ```
 
 **Expected output:**
@@ -88,7 +90,7 @@ Testing MCP Product Server...
 ### Full Test (Integration Test)
 Tests all tools with real database queries:
 ```bash
-python3 test_magento_mcp.py
+python3 claude_utils/test_magento_mcp.py
 ```
 
 **Expected output:**
@@ -107,6 +109,78 @@ Testing Magento Product MCP Server...
 Review Server: PASS
 Product Server: PASS
 ============================================================
+```
+
+### Agent MCP Execution Test
+Tests if MCP functions are accessible in the agent's execution environment:
+```bash
+python3 claude_utils/test_agent_mcp_execution.py
+```
+
+**What it tests:**
+- MCP server initialization with agent
+- Function availability in `__main__` namespace
+- Single expression auto-display (e.g., `2 + 2`)
+- MCP function calls with auto-display (e.g., `magento_product_server_search_products(...)`)
+- Multi-line code with explicit `send_msg_to_user` calls
+
+**Expected output:**
+```
+Testing MCP function execution in agent environment
+[1] Initializing agent with MCP servers...
+[2] Creating agent (initializes MCP clients)...
+[3] Checking MCP functions in __main__ namespace...
+Found N MCP functions: [...]
+[4] Applying patch_with_custom_exec...
+
+TEST 1: Simple expression (2 + 2)
+📨 send_message_to_user called:
+   → 4
+✅ Test 1 passed
+
+TEST 2: MCP function call - search Amazon Basics products
+📨 send_message_to_user called:
+   → [{'entity_id': ..., 'sku': ..., ...}]
+✅ Test 2 passed
+
+TEST 3: Multi-line code with explicit send_msg_to_user
+📨 send_message_to_user called:
+   Found N products
+✅ Test 3 passed
+```
+
+### MCP in Task Execution Test
+Tests if MCP tools are accessible during actual task execution:
+```bash
+python3 claude_utils/test_mcp_in_task.py
+```
+
+**What it tests:**
+- MCP manager creation and tool registration
+- MCP tools available in action set
+- `__main__` namespace setup for MCP access
+- Direct tool calls with real database queries
+
+**Expected output:**
+```
+=== Checking MCP Tool Availability ===
+MCP Manager exists: True
+Available tools: ['get_product_reviews', 'create_review', 'search_products', ...]
+
+Action set functions:
+  - magento_review_server_get_product_reviews
+  - magento_product_server_search_products
+  ...
+
+__main__._action_set_mcp_manager exists: True
+__main__._mcp_tool_wrappers exists: True
+
+=== Testing Direct Tool Call ===
+✅ Tool call succeeded! Got 14 reviews
+✅ Found 3 reviews mentioning 'small':
+   - Reviewer1
+   - Reviewer2
+   - Reviewer3
 ```
 
 **Note:** Virtual environment not required - tests run servers inside Docker container which has all dependencies.
@@ -139,9 +213,11 @@ Container exposes:
 - `mcp_servers/magento_review_data.py` - Review operations
 - `mcp_servers/magento_products.py` - Product browsing
 
-### Tests
-- `test_mcp_server.py` - Quick smoke test
-- `test_magento_mcp.py` - Full integration test
+### Test Scripts (in `claude_utils/`)
+- `test_mcp_server.py` - Quick smoke test for MCP servers
+- `test_magento_mcp.py` - Full integration test for all MCP tools
+- `test_agent_mcp_execution.py` - Tests MCP function execution in agent environment
+- `test_mcp_in_task.py` - Tests MCP tool availability during task execution
 
 ### Documentation
 - `proposed_mcp_actions.md` - Defines all MCP actions (some commented out for Phase 1)

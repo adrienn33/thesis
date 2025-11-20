@@ -236,9 +236,9 @@ def reconnect_server(server_name):
 def run_test(test_name):
     """Run test scripts and stream output"""
     if test_name == 'quick':
-        script = 'test_mcp_server.py'
+        script = 'claude_utils/test_mcp_server.py'
     elif test_name == 'full':
-        script = 'test_magento_mcp.py'
+        script = 'claude_utils/test_magento_mcp.py'
     else:
         return jsonify({'error': 'Invalid test name'}), 400
     
