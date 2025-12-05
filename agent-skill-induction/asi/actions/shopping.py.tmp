@@ -410,3 +410,134 @@ def navigate_to_account_orders(account_link_id: str):
         navigate_to_account_orders('227')
     """
     click(account_link_id)
+
+def set_items_per_page(select_id: str, item_count: str):
+    """Change the number of items displayed per page using a dropdown selector.
+    
+    Args:
+        select_id: The ID of the select/dropdown element
+        item_count: The number of items to display per page (as a string)
+    
+    Returns:
+        None
+    
+    Examples:
+        set_items_per_page('1509', '50')
+        set_items_per_page('1509', '100')
+    """
+    select_option(select_id, item_count)
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search input field
+        product_name: The name or description of the product to search for
+        
+    Returns:
+        None (performs search and displays results)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def find_reviewers_by_keyword(product_id: str, keyword: str):
+    """Find reviewers who mention a specific keyword in their reviews.
+    
+    Args:
+        product_id: The product ID to get reviews for
+        keyword: The keyword or phrase to search for in reviews
+        
+    Returns:
+        None (sends results to user via send_msg_to_user)
+        
+    Examples:
+        find_reviewers_by_keyword("B00JXLGF06", "average print quality")
+        find_reviewers_by_keyword("B00ABC123", "battery life")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    reviewers_mentioning_keyword = []
+    
+    for review in reviews:
+        review_text = (review.get("title", "") + " " + review.get("detail", "")).lower()
+        keyword_lower = keyword.lower()
+        if keyword_lower in review_text:
+            reviewer_name = review.get("nickname", "Unknown")
+            reviewers_mentioning_keyword.append(reviewer_name)
+    
+    if reviewers_mentioning_keyword:
+        message = f"Reviewers who mention '{keyword}':\n"
+        for i, name in enumerate(reviewers_mentioning_keyword, 1):
+            message += f"{i}. {name}\n"
+        send_msg_to_user(message.strip())
+    else:
+        send_msg_to_user(f"No reviewers mentioned '{keyword}' in their reviews for this product.")
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or keywords of the product to search for
+        
+    Returns:
+        None (performs search action)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_order_history(account_link_id: str):
+    """Navigate from homepage to order history page.
+    
+    Args:
+        account_link_id: The ID of the "My Account" link
+        
+    Returns:
+        None (performs navigation)
+        
+    Examples:
+        navigate_to_order_history('227')
+    """
+    click(account_link_id)
+    # Assumes "View All" link is accessible after clicking My Account
+    # The next steps depend on pagination navigation
+
+
+def get_fulfilled_orders_summary(customer_email: str, start_date: str, end_date: str):
+    """Retrieve and summarize fulfilled orders within a date range.
+    
+    Args:
+        customer_email: The email address of the customer
+        start_date: Start date in format 'YYYY-MM-DD'
+        end_date: End date in format 'YYYY-MM-DD'
+        
+    Returns:
+        dict with keys 'order_count' (int) and 'total_spent' (float)
+        
+    Examples:
+        result = get_fulfilled_orders_summary('emma.lopez@gmail.com', '2023-02-12', '2023-06-12')
+        # Returns: {'order_count': 3, 'total_spent': 845.49}
+    """
+    orders = magento_checkout_server_list_orders(
+        customer_email=customer_email,
+        status="complete",
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    order_count = len(orders)
+    total_spent = sum(order['grand_total'] for order in orders)
+    
+    return {'order_count': order_count, 'total_spent': total_spent}

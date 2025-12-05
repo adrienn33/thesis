@@ -96,10 +96,18 @@ def induce_actions() -> list[str] | None:
     print(f"[INDUCE] Generated test query ({len(test_query)} chars)")
     with open(args.test_query_path, 'w') as fw: fw.write(test_query)
 
+    # Extract existing function signatures to show the model
+    existing_code = open(args.write_action_path).read()
+    existing_signatures = []
+    for line in existing_code.split('\n'):
+        if line.strip().startswith('def '):
+            existing_signatures.append(line.strip())
+    existing_funcs_summary = '\n'.join(existing_signatures) if existing_signatures else "None"
+    
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
     messages += [{"role": "user", "content": open(args.instruction_path).read()}]
     messages += [{"role": "user", "content": open(args.few_shot_path).read()}]
-    # messages += [{"role": "user", "content": "## Existing Actions\n" + open(args.write_action_path).read()}]
+    messages += [{"role": "user", "content": f"## Existing Function Signatures (DO NOT create duplicates of these)\n```python\n{existing_funcs_summary}\n```"}]
     messages += [{"role": "user", "content": test_query + '\n\n## Reusable Functions'}]
 
     all_responses = []
@@ -180,13 +188,32 @@ def write_actions(response: str) -> tuple[str, list[str]]:
     actions = extract_code_pieces(response, start="```python", end="```", do_split=False)
     actions = [a for a in actions if "def " in a and count_function_calls(a, 1)]
     new_actions, action_names = [], []
+    duplicates_found = []
+    
     for a in actions:
         if ("def " in a) and count_function_calls(a, 1):
             a_names = get_function_names(a, existing_action_names)
             if len(a_names) > 0:
+                # Check if any of these names are already in our new_actions list (duplicates within response)
+                already_added = [n for n in a_names if n in action_names]
+                if already_added:
+                    duplicates_found.extend(already_added)
+                    print(f"⚠️  DUPLICATE DETECTED in response: {already_added} - Skipping")
+                    continue
+                
                 action_names.extend(a_names)
                 new_actions.append(a)
+            else:
+                # These function names already exist in the file
+                existing_in_file = get_function_names(a, [])
+                if existing_in_file:
+                    duplicates_found.extend(existing_in_file)
+                    print(f"⚠️  DUPLICATE DETECTED in file: {existing_in_file} - Skipping")
 
+    if duplicates_found:
+        print(f"\n❌ REJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
+        print(f"   These functions already exist in {args.write_action_path}")
+    
     print(
         f"Induced #{len(new_actions)}|{len(action_names)} Actions, ",
         [a.split("\n")[0] for a in new_actions],

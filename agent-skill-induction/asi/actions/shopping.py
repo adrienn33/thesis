@@ -426,3 +426,217 @@ def set_items_per_page(select_id: str, item_count: str):
         set_items_per_page('1509', '100')
     """
     select_option(select_id, item_count)
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search input field
+        product_name: The name or description of the product to search for
+        
+    Returns:
+        None (performs search and displays results)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def find_reviewers_by_keyword(product_id: str, keyword: str):
+    """Find reviewers who mention a specific keyword in their reviews.
+    
+    Args:
+        product_id: The product ID to get reviews for
+        keyword: The keyword or phrase to search for in reviews
+        
+    Returns:
+        None (sends results to user via send_msg_to_user)
+        
+    Examples:
+        find_reviewers_by_keyword("B00JXLGF06", "average print quality")
+        find_reviewers_by_keyword("B00ABC123", "battery life")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    reviewers_mentioning_keyword = []
+    
+    for review in reviews:
+        review_text = (review.get("title", "") + " " + review.get("detail", "")).lower()
+        keyword_lower = keyword.lower()
+        if keyword_lower in review_text:
+            reviewer_name = review.get("nickname", "Unknown")
+            reviewers_mentioning_keyword.append(reviewer_name)
+    
+    if reviewers_mentioning_keyword:
+        message = f"Reviewers who mention '{keyword}':\n"
+        for i, name in enumerate(reviewers_mentioning_keyword, 1):
+            message += f"{i}. {name}\n"
+        send_msg_to_user(message.strip())
+    else:
+        send_msg_to_user(f"No reviewers mentioned '{keyword}' in their reviews for this product.")
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or keywords of the product to search for
+        
+    Returns:
+        None (performs search action)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_order_history(account_link_id: str):
+    """Navigate from homepage to order history page.
+    
+    Args:
+        account_link_id: The ID of the "My Account" link
+        
+    Returns:
+        None (performs navigation)
+        
+    Examples:
+        navigate_to_order_history('227')
+    """
+    click(account_link_id)
+    # Assumes "View All" link is accessible after clicking My Account
+    # The next steps depend on pagination navigation
+
+
+def get_fulfilled_orders_summary(customer_email: str, start_date: str, end_date: str):
+    """Retrieve and summarize fulfilled orders within a date range.
+    
+    Args:
+        customer_email: The email address of the customer
+        start_date: Start date in format 'YYYY-MM-DD'
+        end_date: End date in format 'YYYY-MM-DD'
+        
+    Returns:
+        dict with keys 'order_count' (int) and 'total_spent' (float)
+        
+    Examples:
+        result = get_fulfilled_orders_summary('emma.lopez@gmail.com', '2023-02-12', '2023-06-12')
+        # Returns: {'order_count': 3, 'total_spent': 845.49}
+    """
+    orders = magento_checkout_server_list_orders(
+        customer_email=customer_email,
+        status="complete",
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    order_count = len(orders)
+    total_spent = sum(order['grand_total'] for order in orders)
+    
+    return {'order_count': order_count, 'total_spent': total_spent}
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or description of the product to search for
+    
+    Returns:
+        None (performs search action)
+    
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Water bottles')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def get_product_reviews_by_name(product_name: str, manufacturer: str = None):
+    """Search for products by name and/or manufacturer, then retrieve their reviews.
+    
+    Args:
+        product_name: The name of the product to search for
+        manufacturer: Optional manufacturer name to filter products
+    
+    Returns:
+        A formatted string containing customer reviews for the products, or a message if no reviews found
+    
+    Examples:
+        get_product_reviews_by_name('brush', 'sephora')
+        get_product_reviews_by_name('Nintendo Switch case')
+    """
+    # Search for products matching the criteria
+    search_query = product_name
+    if manufacturer:
+        search_query = f"{manufacturer} {product_name}"
+    
+    products = magento_product_server_search_products(name=search_query)
+    
+    if not products:
+        return f"No products found for '{search_query}'."
+    
+    # Collect reviews from all found products
+    all_reviews = []
+    for product in products:
+        product_id = product.get('id')
+        product_title = product.get('name', 'Unknown Product')
+        
+        reviews = magento_review_server_get_product_reviews(product_id)
+        
+        if reviews:
+            for review in reviews:
+                all_reviews.append({
+                    'product': product_title,
+                    'reviewer': review.get('nickname', 'Anonymous'),
+                    'rating': review.get('rating', 'N/A'),
+                    'title': review.get('title', ''),
+                    'detail': review.get('detail', '')
+                })
+    
+    # Format and return the results
+    if all_reviews:
+        message = f"Here's what customers say about {product_name}"
+        if manufacturer:
+            message += f" from {manufacturer}"
+        message += ":\n\n"
+        
+        for review in all_reviews:
+            message += f"**Product:** {review['product']}\n"
+            message += f"**Reviewer:** {review['reviewer']}\n"
+            message += f"**Rating:** {review['rating']}/5\n"
+            message += f"**Title:** {review['title']}\n"
+            message += f"**Review:** {review['detail']}\n"
+            message += "---\n"
+        
+        return message
+    else:
+        return f"No reviews found for {search_query} products yet."
+
+
+def find_storage_solution(search_bar_id: str | int, product_keyword: str, required_capacity: int):
+    """Search for a storage solution that can fit the required number of items.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_keyword: The search keyword for the storage product type (e.g., 'Nintendo Switch game card storage')
+        required_capacity: The minimum number of items the storage should hold
+    
+    Returns:
+        None (performs search and displays results, user should click on appropriate product)
+    
+    Examples:
+        find_storage_solution('567', 'Nintendo Switch game card storage case', 11)
+        find_storage_solution('179', 'Nintendo Switch game card storage', 31)
+    """
+    search_product(search_bar_id, product_keyword)
+    scroll(0, 300)

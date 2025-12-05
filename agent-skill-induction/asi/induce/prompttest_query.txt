@@ -1,6 +1,65 @@
-## Task: Get the order number of my most recent {{status}} order 
-### Example 1 (233): Get the order number of my most recent complete order 
-Clicked the "My Account" link to access the account page and view order history.
-```click('227')```
-Viewed the "My Account" page and identified the most recent complete order as Order 000000180 (dated 3/11/23) from the Recent Orders table.
-```send_msg_to_user("The order number of your most recent complete order is 000000180.")```
+## Task: What do customers say about {{product_type}} from {{manufature}}
+### Example 1 (225): What do customers say about brush from sephora
+Searched for "Sephora brush" to find relevant brush products and access their customer reviews.
+```
+search_product('272', 'Sephora brush')
+```
+Searched for "Sephora" to find Sephora products after the "Sephora brush" search returned no results.
+```
+search_product('265', 'Sephora')
+```
+Searched the product database using MCP tools for Sephora brush products instead of using the website search function.
+```
+magento_product_server_search_products(name="Sephora brush")
+```
+Searched for "brush" to find brush products and identify Sephora options through product listings or reviews.
+```
+magento_product_server_search_products(name="brush")
+```
+Searched for "Sephora" products to find Sephora-branded items in the catalog.
+```
+magento_product_server_search_products(name="Sephora")
+```
+Retrieved reviews for two Sephora brush products: SEPHORA COLLECTION PRO Featherweight Powder Brush #91 and Sephora Collection Skin Perfecting Brush Set to analyze customer feedback.
+```
+# Get reviews for both Sephora brush products
+reviews_brush_91 = magento_review_server_get_product_reviews("B01N77Y4ZH")
+reviews_brush_set = magento_review_server_get_product_reviews("B08YP1ZGNJ")
+
+# Combine and format the reviews
+all_reviews = []
+
+if reviews_brush_91:
+    for review in reviews_brush_91:
+        all_reviews.append({
+            'product': 'SEPHORA COLLECTION PRO Featherweight Powder Brush #91',
+            'reviewer': review.get('nickname', 'Anonymous'),
+            'rating': review.get('rating', 'N/A'),
+            'title': review.get('title', ''),
+            'detail': review.get('detail', '')
+        })
+
+if reviews_brush_set:
+    for review in reviews_brush_set:
+        all_reviews.append({
+            'product': 'Sephora Collection Skin Perfecting Brush Set',
+            'reviewer': review.get('nickname', 'Anonymous'),
+            'rating': review.get('rating', 'N/A'),
+            'title': review.get('title', ''),
+            'detail': review.get('detail', '')
+        })
+
+# Format and send the results to the user
+if all_reviews:
+    message = "Here's what customers say about Sephora brushes:\n\n"
+    for review in all_reviews:
+        message += f"**Product:** {review['product']}\n"
+        message += f"**Reviewer:** {review['reviewer']}\n"
+        message += f"**Rating:** {review['rating']}/5\n"
+        message += f"**Title:** {review['title']}\n"
+        message += f"**Review:** {review['detail']}\n"
+        message += "---\n"
+    send_msg_to_user(message)
+else:
+    send_msg_to_user("No reviews found for Sephora brush products yet.")
+```
