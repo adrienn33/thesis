@@ -94,6 +94,18 @@ MCP_SERVER_CONFIGS = {
     'magento-product-server': MCPServerConfig(
         name='Magento Product Server',
         command=['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_products.py']
+    ),
+    'magento-checkout-server': MCPServerConfig(
+        name='Magento Checkout Server',
+        command=['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_checkout.py']
+    ),
+    'magento-wishlist-server': MCPServerConfig(
+        name='Magento Wishlist Server',
+        command=['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_wishlist.py']
+    ),
+    'magento-account-server': MCPServerConfig(
+        name='Magento Account Server',
+        command=['docker', 'exec', '-i', 'shopping', 'python3', '/tmp/magento_account.py']
     )
 }
 

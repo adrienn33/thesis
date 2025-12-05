@@ -103,7 +103,7 @@ def execute_python_code(
     main_globals = vars(__main__)
     mcp_funcs_added = []
     for name, obj in main_globals.items():
-        if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
+        if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'magento_checkout_server' in name or 'magento_wishlist_server' in name or 'magento_account_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
             globals[name] = obj
             mcp_funcs_added.append(name)
     

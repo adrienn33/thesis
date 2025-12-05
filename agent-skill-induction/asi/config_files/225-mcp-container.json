@@ -49,6 +49,39 @@
         "python3",
         "/tmp/magento_products.py"
       ]
+    },
+    {
+      "name": "magento-checkout-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_checkout.py"
+      ]
+    },
+    {
+      "name": "magento-wishlist-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_wishlist.py"
+      ]
+    },
+    {
+      "name": "magento-account-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_account.py"
+      ]
     }
   ]
 }

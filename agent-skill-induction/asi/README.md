@@ -1,17 +1,14 @@
 ## README
 
-<!-- Check: -->
-<!-- Can we modify existing skills? -->
-
 # MCP Actions
 
 ## User Account Management
 
 <!-- 1. **create_account** - Register a new user account with email, password, and basic profile information
 2. **login** - Authenticate a user and establish a session
-3. **logout** - End the current user session
-4. **get_account_info** - Retrieve current user's profile details
-5. **update_account_info** - Update user profile information (name, email, password) -->
+3. **logout** - End the current user session -->
+4. **get_account_info** - Retrieve customer profile details including personal information and all saved addresses
+5. **update_account_info** - Update customer profile information (name fields, date of birth, gender)
 
 ## Product Browsing & Search
 
@@ -21,10 +18,10 @@
 
 ## Shopping Cart
 
-<!-- 9. **add_to_cart** - Add a product to the shopping cart with specified quantity and product options (e.g., color, size for configurable products)
-10. **remove_from_cart** - Remove a specific item from the cart
-11. **update_cart_item** - Update quantity of an item in the cart
-12. **get_cart** - View current cart contents and totals -->
+9. **add_to_cart** - Add a product to the shopping cart with specified quantity (supports product entity ID or SKU)
+10. **remove_from_cart** - Remove a specific item from the cart by item ID
+11. **update_cart_item** - Update quantity of a cart item by item ID
+12. **get_cart** - View current cart contents and totals
 
 ## Checkout & Orders
 <!-- 
@@ -32,15 +29,15 @@
 14. **add_billing_address** - Add or update billing address for checkout
 15. **set_shipping_method** - Select shipping method (standard, express, etc.)
 16. **set_payment_method** - Select payment method
-17. **place_order** - Complete the checkout process and place the order
-18. **get_order_details** - Retrieve details of a specific order by order ID
-19. **list_orders** - Get order history for the current user -->
+17. **place_order** - Complete the checkout process and place the order -->
+18. **get_order_details** - Retrieve detailed information about a specific order by order ID or order number
+19. **list_orders** - Get order history with optional filtering by customer, status, and date range
 
 ## Wishlist
 
-<!-- 20. **add_to_wishlist** - Add a product to the user's wishlist
-21. **remove_from_wishlist** - Remove an item from the wishlist
-22. **get_wishlist** - View all items in the user's wishlist -->
+20. **add_to_wishlist** - Add a product to the user's wishlist with optional quantity and description
+21. **remove_from_wishlist** - Remove a specific item from the wishlist by wishlist item ID
+22. **get_wishlist** - View all items in the user's wishlist
 
 ## Product Reviews
 
