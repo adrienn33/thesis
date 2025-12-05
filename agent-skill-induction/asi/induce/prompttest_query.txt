@@ -1,6 +1,6 @@
-## Task: List out reviewers, if exist, who mention about {{description}}
-### Example 1 (24): List out reviewers, if exist, who mention about price being unfair
-Clicked on the search or retrieval function to fetch all reviews for the product with SKU "B002C1B1YY" in order to identify reviewers who mention unfair pricing.
-```magento_review_server_get_product_reviews("B002C1B1YY")```
-Analyzed the retrieved reviews for product SKU B002C1B1YY and determined that neither of the two reviews (by Jay and Josef Bürger) contained mentions of unfair pricing.
-```send_msg_to_user("Based on my review of all available reviews for this product (SKU: B002C1B1YY), there are 2 reviews total:\n\n1. Reviewer: Jay - Title: 'Wonderful!' - No mention of unfair pricing\n2. Reviewer: Josef Bürger - Title: 'Joe' - No mention of unfair pricing\n\nConclusion: No reviewers mention about price being unfair for this product.")```
+## Task: Get the order number of my most recent {{status}} order 
+### Example 1 (233): Get the order number of my most recent complete order 
+Clicked the "My Account" link to access the account page and view order history.
+```click('227')```
+Viewed the "My Account" page and identified the most recent complete order as Order 000000180 (dated 3/11/23) from the Recent Orders table.
+```send_msg_to_user("The order number of your most recent complete order is 000000180.")```

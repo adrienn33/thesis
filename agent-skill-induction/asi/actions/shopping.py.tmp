@@ -410,19 +410,3 @@ def navigate_to_account_orders(account_link_id: str):
         navigate_to_account_orders('227')
     """
     click(account_link_id)
-
-def set_items_per_page(select_id: str, item_count: str):
-    """Change the number of items displayed per page using a dropdown selector.
-    
-    Args:
-        select_id: The ID of the select/dropdown element
-        item_count: The number of items to display per page (as a string)
-    
-    Returns:
-        None
-    
-    Examples:
-        set_items_per_page('1509', '50')
-        set_items_per_page('1509', '100')
-    """
-    select_option(select_id, item_count)

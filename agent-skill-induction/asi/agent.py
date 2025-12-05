@@ -349,6 +349,8 @@ def {func_name}({param_str}):
 
     When high-level functions such as `get_driving_time` or 'book_flights` are available, please prioritize using them.
     
+    IMPORTANT: If website-specific skill functions are available (such as `search_for_product`, `check_reviews_for_keyword`, etc.), you should STRONGLY PREFER using these skills over low-level browser actions. These skills are reusable, tested, and more efficient than browser interactions. Always check if a relevant skill exists before falling back to browser clicks/fills.
+    
     IMPORTANT: If MCP tool functions are available (functions starting with `magento_review_server_`, `magento_product_server_`, or similar prefixes), you MUST prioritize using them over browser interactions when they can accomplish your goal. MCP tools provide direct database access and are more reliable than browser scraping.
     
     CRITICAL: When writing Python code in triple backticks, write COMPLETE executable code that accomplishes the task. Don't just call a function - capture the result, process it, and report findings using send_msg_to_user(). For example, when searching reviews: capture return value → filter/process data → send results to user.

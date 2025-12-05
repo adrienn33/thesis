@@ -972,10 +972,11 @@ def run_batch_tasks():
                 # Use run_online.py for ASI workflow
                 yield f"data: {json.dumps({'type': 'task_output', 'task_id': task_id, 'line': '[ASI] Running task with Agent Skill Induction enabled...'})}\n\n"
                 cmd = [
-                    'python3', 'run_online.py',
+                    'venv/bin/python3', 'run_online.py',
                     '--experiment', 'asi',
                     '--website', website,
-                    '--task_ids', task_id
+                    '--task_ids', task_id,
+                    '--task_index_offset', str(idx)
                 ]
                 proc = subprocess.Popen(
                     cmd,

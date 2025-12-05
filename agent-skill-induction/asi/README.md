@@ -1,5 +1,8 @@
 ## README
 
+<!-- Check: -->
+<!-- Can we modify existing skills? -->
+
 # MCP Actions
 
 ## User Account Management
