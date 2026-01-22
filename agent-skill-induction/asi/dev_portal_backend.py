@@ -329,101 +329,314 @@ def run_task():
     if not os.path.exists(config_file):
         return jsonify({'error': f'Config file not found: {config_file}'}), 404
     
-    cmd = [
-        'venv/bin/python3', 'run_demo.py',
-        '--task_name', f'webarena.{task_name}',
-        '--websites', website
-    ]
-    
-    if use_mcp:
-        cmd.extend(['--mcp_config', config_file])
-    
-    if headless:
-        cmd.append('--headless')
+    # Determine experiment mode based on MCP and ASI settings
+    if use_asi and use_mcp:
+        experiment_mode = 'asi'  # MCP + ASI
+    elif use_mcp and not use_asi:
+        experiment_mode = 'mcp'  # MCP only
+    else:
+        experiment_mode = 'vanilla'  # No MCP, no ASI (true control)
     
     def generate():
-        # If ASI is enabled, use run_online.py instead
-        if use_asi:
-            yield '[ASI] Running task with Agent Skill Induction enabled...\n'
-            proc = subprocess.Popen(
-                ['venv/bin/python3', 'run_online.py', '--experiment', 'asi', '--website', website, '--task_ids', task_name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=os.environ.copy()
-            )
-            
-            result_dir = None
-            for line in iter(proc.stdout.readline, ''):
-                if line:
-                    yield line
-                    # Extract result directory for later use
-                    if 'results/webarena.' in line:
-                        parts = line.split('results/')
-                        if len(parts) > 1:
-                            potential_dir = parts[1].split()[0].strip()
-                            if potential_dir.startswith('webarena.'):
-                                result_dir = potential_dir
-            
-            proc.stdout.close()
-            return_code = proc.wait()
-            
-            if return_code == 0:
+        # Always use run_online.py for consistent research metrics generation
+        yield f'[{experiment_mode.upper()}] Running task with {experiment_mode} configuration...\n'
+        proc = subprocess.Popen(
+            ['venv/bin/python3', 'run_online.py', '--experiment', experiment_mode, '--website', website, '--task_ids', task_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=os.environ.copy()
+        )
+
+        result_dir = None
+        for line in iter(proc.stdout.readline, ''):
+            if line:
+                yield line
+                # Extract result directory for later use
+                if 'results/webarena.' in line:
+                    parts = line.split('results/')
+                    if len(parts) > 1:
+                        potential_dir = parts[1].split()[0].strip()
+                        if potential_dir.startswith('webarena.'):
+                            result_dir = potential_dir
+
+        proc.stdout.close()
+        return_code = proc.wait()
+
+        if return_code == 0:
+            if use_asi:
                 yield '\n[ASI] Agent Skill Induction completed successfully!\n'
                 yield '[ASI] Check actions/shopping.py for newly induced skills.\n'
-                yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
-            else:
-                yield f'\n[ASI] Process failed with code {return_code}\n'
-                yield '\n[TASK FAILED]\n'
-            
-            # Set result_dir to symlink if not extracted
-            if not result_dir:
-                result_dir = f'webarena.{task_name}'
-            
-            yield f'\n[RESULT_DIR:{result_dir}]\n'
+            yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
         else:
-            # Normal execution without ASI
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=os.environ.copy()
-            )
-            
-            result_dir = None
-            prev_line = ''
-            for line in iter(proc.stdout.readline, ''):
-                if line:
-                    yield line
-                    # Extract result directory from output
-                    # Format is: "Running experiment ... in:\n  results/dirname"
-                    if 'Running experiment' in prev_line and 'results/' in line:
-                        parts = line.strip().split('results/')
-                        if len(parts) > 1:
-                            result_dir = parts[1].strip()
-                    elif 'results/' in line and 'Running experiment' in line:
-                        # Fallback for single-line format
-                        parts = line.split('results/')
-                        if len(parts) > 1:
-                            result_dir = parts[1].strip().split()[0]
-                    prev_line = line
-            
-            proc.stdout.close()
-            return_code = proc.wait()
-            
-            if return_code == 0:
-                yield '\n[TASK COMPLETED SUCCESSFULLY]\n'
-            else:
-                yield f'\n[TASK FAILED WITH CODE {return_code}]\n'
-            
-            # Send result directory path for frontend to fetch detailed results
-            if result_dir:
-                yield f'\n[RESULT_DIR:{result_dir}]\n'
+            if use_asi:
+                yield f'\n[ASI] Process failed with code {return_code}\n'
+            yield '\n[TASK FAILED]\n'
+
+        # Set result_dir to symlink if not extracted
+        if not result_dir:
+            result_dir = f'webarena.{task_name}'
+
+        yield f'\n[RESULT_DIR:{result_dir}]\n'
     
     return Response(generate(), mimetype='text/plain')
+
+@app.route('/api/save-cohort', methods=['POST'])
+def save_cohort():
+    """Save research_metrics.json files from the standard 20-task cohort to organized directories"""
+    try:
+        import shutil
+        import glob
+        import json
+        
+        # Define the standard 20-task cohort
+        COHORT_TASKS = [21, 22, 23, 24, 25, 47, 48, 49, 50, 51, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234]
+        
+        results_dir = Path(__file__).parent / 'results'
+        
+        # Find research_metrics.json files for cohort tasks only
+        cohort_files = {}
+        for task_id in COHORT_TASKS:
+            metrics_file = results_dir / f'webarena.{task_id}' / 'research_metrics.json'
+            if metrics_file.exists():
+                cohort_files[task_id] = metrics_file
+        
+        if not cohort_files:
+            return jsonify({'error': 'No research_metrics.json files found for cohort tasks'}), 400
+        
+        # Create final directory if it doesn't exist
+        final_dir = results_dir / 'final'
+        final_dir.mkdir(exist_ok=True)
+        
+        # Find next cohort number
+        existing_cohorts = [d for d in final_dir.iterdir() if d.is_dir() and d.name.startswith('cohort_')]
+        cohort_numbers = []
+        for cohort in existing_cohorts:
+            try:
+                num = int(cohort.name.split('_')[1])
+                cohort_numbers.append(num)
+            except (IndexError, ValueError):
+                continue
+        
+        next_cohort_num = max(cohort_numbers) + 1 if cohort_numbers else 1
+        cohort_dir = final_dir / f'cohort_{next_cohort_num}'
+        cohort_dir.mkdir(exist_ok=True)
+        
+        # Create subdirectories for experimental conditions
+        vanilla_dir = cohort_dir / 'Vanilla'
+        mcp_dir = cohort_dir / 'MCP'  
+        asi_dir = cohort_dir / 'ASI'
+        
+        vanilla_dir.mkdir(exist_ok=True)
+        mcp_dir.mkdir(exist_ok=True)
+        asi_dir.mkdir(exist_ok=True)
+        
+        # Sort files by experimental condition and copy
+        copied_stats = {'Vanilla': 0, 'MCP': 0, 'ASI': 0}
+        task_ids_by_condition = {'Vanilla': [], 'MCP': [], 'ASI': []}
+        
+        for task_id, metrics_file in cohort_files.items():
+            with open(metrics_file, 'r') as f:
+                data = json.load(f)
+                
+            # Determine experimental condition
+            config = data.get('configuration', {})
+            mcp_enabled = config.get('mcp_enabled', False)
+            asi_enabled = config.get('asi_enabled', False)
+            
+            if asi_enabled and mcp_enabled:
+                condition = 'ASI'  # MCP+ASI
+                target_dir = asi_dir
+            elif mcp_enabled and not asi_enabled:
+                condition = 'MCP'  # MCP only
+                target_dir = mcp_dir
+            else:
+                condition = 'Vanilla'  # No MCP, no ASI
+                target_dir = vanilla_dir
+            
+            # Copy file to appropriate subdirectory
+            target_path = target_dir / f'webarena.{task_id}_research_metrics.json'
+            shutil.copy2(metrics_file, target_path)
+            
+            copied_stats[condition] += 1
+            task_ids_by_condition[condition].append(f'webarena.{task_id}')
+        
+        # Also run analysis on the cohort data and save to each subdirectory
+        for condition, condition_dir in [('Vanilla', vanilla_dir), ('MCP', mcp_dir), ('ASI', asi_dir)]:
+            if copied_stats[condition] > 0:
+                try:
+                    # Create a temporary directory with just this condition's files for analysis
+                    import tempfile
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        temp_results = Path(temp_dir) / 'results'
+                        temp_results.mkdir()
+                        
+                        # Copy condition files to temp structure for analysis
+                        for metrics_file in condition_dir.glob('*_research_metrics.json'):
+                            task_name = metrics_file.name.replace('_research_metrics.json', '')
+                            task_dir = temp_results / task_name
+                            task_dir.mkdir()
+                            shutil.copy2(metrics_file, task_dir / 'research_metrics.json')
+                        
+                        # Run analysis on this condition
+                        import subprocess
+                        result = subprocess.run([
+                            'python3', 'mcp_research_tracker.py', str(temp_results)
+                        ], capture_output=True, text=True, cwd=Path(__file__).parent)
+                        
+                        if result.returncode == 0:
+                            analysis_file = condition_dir / 'analysis_report.txt'
+                            with open(analysis_file, 'w') as f:
+                                f.write(result.stdout)
+                                
+                except Exception as e:
+                    print(f"Warning: Could not run analysis for {condition}: {e}")
+        
+        # Also create an overall analysis for comparison
+        try:
+            result = subprocess.run([
+                'python3', 'mcp_research_tracker.py', str(results_dir)
+            ], capture_output=True, text=True, cwd=Path(__file__).parent)
+            
+            if result.returncode == 0:
+                overall_analysis = cohort_dir / 'overall_analysis_report.txt'
+                with open(overall_analysis, 'w') as f:
+                    f.write(result.stdout)
+        except Exception as e:
+            print(f"Warning: Could not run overall analysis: {e}")
+        
+        total_files = sum(copied_stats.values())
+        return jsonify({
+            'success': True,
+            'cohort': f'cohort_{next_cohort_num}',
+            'files_copied': total_files,
+            'breakdown': copied_stats,
+            'task_ids_by_condition': task_ids_by_condition,
+            'path': str(cohort_dir),
+            'cohort_tasks': COHORT_TASKS
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cohorts', methods=['GET'])
+def list_cohorts():
+    """List all saved cohorts with their organized structure metadata"""
+    try:
+        results_dir = Path(__file__).parent / 'results'
+        final_dir = results_dir / 'final'
+        
+        if not final_dir.exists():
+            return jsonify({'cohorts': []})
+        
+        cohorts = []
+        for cohort_dir in sorted(final_dir.iterdir()):
+            if cohort_dir.is_dir() and cohort_dir.name.startswith('cohort_'):
+                # Check for new organized structure (Vanilla/MCP/ASI subdirs)
+                vanilla_dir = cohort_dir / 'Vanilla'
+                mcp_dir = cohort_dir / 'MCP'
+                asi_dir = cohort_dir / 'ASI'
+                
+                if vanilla_dir.exists() or mcp_dir.exists() or asi_dir.exists():
+                    # New organized structure
+                    condition_breakdown = {}
+                    total_experiments = 0
+                    
+                    for condition, cond_dir in [('Vanilla', vanilla_dir), ('MCP', mcp_dir), ('ASI', asi_dir)]:
+                        if cond_dir.exists():
+                            metrics_files = list(cond_dir.glob('*_research_metrics.json'))
+                            count = len(metrics_files)
+                            task_ids = [f.name.replace('_research_metrics.json', '') for f in metrics_files]
+                            condition_breakdown[condition] = {
+                                'count': count,
+                                'task_ids': sorted(task_ids),
+                                'has_analysis': (cond_dir / 'analysis_report.txt').exists()
+                            }
+                            total_experiments += count
+                        else:
+                            condition_breakdown[condition] = {
+                                'count': 0,
+                                'task_ids': [],
+                                'has_analysis': False
+                            }
+                    
+                    # Get creation time
+                    created = cohort_dir.stat().st_ctime
+                    import datetime
+                    created_str = datetime.datetime.fromtimestamp(created).strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    # Check for overall analysis
+                    has_overall_analysis = (cohort_dir / 'overall_analysis_report.txt').exists()
+                    
+                    cohorts.append({
+                        'name': cohort_dir.name,
+                        'path': str(cohort_dir),
+                        'created': created_str,
+                        'experiment_count': total_experiments,
+                        'condition_breakdown': condition_breakdown,
+                        'has_overall_analysis': has_overall_analysis,
+                        'structure': 'organized'  # New organized structure
+                    })
+                
+                else:
+                    # Legacy flat structure (backward compatibility)
+                    metrics_files = list(cohort_dir.glob('*_research_metrics.json'))
+                    
+                    # Get creation time
+                    created = cohort_dir.stat().st_ctime
+                    import datetime
+                    created_str = datetime.datetime.fromtimestamp(created).strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    # Extract task IDs
+                    task_ids = [f.name.replace('_research_metrics.json', '') for f in metrics_files]
+                    
+                    # Check if analysis report exists
+                    has_analysis = (cohort_dir / 'analysis_report.txt').exists()
+                    
+                    cohorts.append({
+                        'name': cohort_dir.name,
+                        'path': str(cohort_dir),
+                        'created': created_str,
+                        'experiment_count': len(metrics_files),
+                        'task_ids': sorted(task_ids),
+                        'has_analysis': has_analysis,
+                        'structure': 'legacy'  # Legacy flat structure
+                    })
+        
+        return jsonify({'cohorts': cohorts})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cohorts/<cohort_name>/analysis', methods=['GET'])
+def get_cohort_analysis(cohort_name):
+    """Get analysis report for a specific cohort or condition"""
+    try:
+        condition = request.args.get('condition', 'overall')  # overall, Vanilla, MCP, or ASI
+        
+        results_dir = Path(__file__).parent / 'results'
+        cohort_dir = results_dir / 'final' / cohort_name
+        
+        if condition == 'overall':
+            # Try overall analysis first, fallback to old analysis file
+            analysis_file = cohort_dir / 'overall_analysis_report.txt'
+            if not analysis_file.exists():
+                analysis_file = cohort_dir / 'analysis_report.txt'
+        else:
+            # Specific condition analysis
+            analysis_file = cohort_dir / condition / 'analysis_report.txt'
+        
+        if not analysis_file.exists():
+            return jsonify({'error': f'Analysis report not found for {condition}'}), 404
+        
+        with open(analysis_file, 'r') as f:
+            content = f.read()
+        
+        return jsonify({'analysis': content})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/task-results/<path:result_path>', methods=['GET'])
 def get_task_results(result_path):
@@ -980,58 +1193,28 @@ def run_batch_tasks():
             # Run task with or without ASI
             start_time = time.time()
             
-            if use_asi:
-                # Use run_online.py for ASI workflow
-                yield f"data: {json.dumps({'type': 'task_output', 'task_id': task_id, 'line': '[ASI] Running task with Agent Skill Induction enabled...'})}\n\n"
-                cmd = [
-                    'venv/bin/python3', 'run_online.py',
-                    '--experiment', 'asi',
-                    '--website', website,
-                    '--task_ids', task_id,
-                    '--task_index_offset', str(idx)
-                ]
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    env=os.environ.copy()
-                )
+            # Determine experiment mode based on MCP and ASI settings
+            if use_asi and use_mcp:
+                experiment_mode = 'asi'  # MCP + ASI
+            elif use_mcp and not use_asi:
+                experiment_mode = 'mcp'  # MCP only
             else:
-                # Normal execution without ASI
-                # Determine config file
-                if use_mcp:
-                    mcp_config_file = f"config_files/{task_id}-mcp-container.json"
-                    if os.path.exists(mcp_config_file):
-                        config_file = mcp_config_file
-                    else:
-                        config_file = f"config_files/{task_id}.json"
-                else:
-                    config_file = f"config_files/{task_id}.json"
-                
-                if not os.path.exists(config_file):
-                    yield f"data: {json.dumps({'type': 'task_error', 'task_id': task_id, 'error': f'Config file not found: {config_file}'})}\n\n"
-                    batch_results.append({'task_id': task_id, 'status': 'error', 'error': 'Config not found'})
-                    continue
-                
-                cmd = [
-                    'venv/bin/python3', 'run_demo.py',
-                    '--task_name', f'webarena.{task_id}',
-                    '--websites', website
-                ]
-                
-                if use_mcp:
-                    cmd.extend(['--mcp_config', config_file])
-                
-                if headless:
-                    cmd.append('--headless')
-                
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
+                experiment_mode = 'vanilla'  # No MCP, no ASI (true control)
+            
+            # Always use run_online.py for consistent research metrics generation
+            yield f"data: {json.dumps({'type': 'task_output', 'task_id': task_id, 'line': f'[{experiment_mode.upper()}] Running task with {experiment_mode} configuration...'})}\n\n"
+            cmd = [
+                'venv/bin/python3', 'run_online.py',
+                '--experiment', experiment_mode,
+                '--website', website,
+                '--task_ids', task_id,
+                '--task_index_offset', str(idx)
+            ]
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
                     bufsize=1,
                     env=os.environ.copy()
                 )

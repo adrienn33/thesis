@@ -37,6 +37,7 @@ def parse_task_ids(task_id_str: str) -> list[str]:
     return task_id_list
 
 def run_vanilla():
+    """Run vanilla experiments - no MCP, no ASI"""
     task_id_list = parse_task_ids(args.task_ids)
 
     for task_index, tid in enumerate(task_id_list, start=1+args.task_index_offset):
@@ -45,6 +46,35 @@ def run_vanilla():
             "venv/bin/python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
             "--headless",
+        ]
+        
+        # VANILLA: No MCP config at all - creates true control group
+        # Don't add any --mcp_config parameter
+        
+        process = Popen(cmd)
+        try:
+            stdout, stderr = process.communicate(timeout=200)
+            print(stdout)
+        except subprocess.TimeoutExpired as e:
+            process.kill()
+            stdout, stderr = process.communicate() # Clean up resources
+            print(f"Process timed out after {e.timeout} seconds.")
+            print(stderr)
+        
+        # Generate research metrics after task completion
+        generate_research_metrics(tid, args.website, task_index, asi_enabled=False, skill_induction_attempted=False)
+
+def run_mcp():
+    """Run MCP-only experiments - MCP enabled, no ASI"""
+    task_id_list = parse_task_ids(args.task_ids)
+
+    for task_index, tid in enumerate(task_id_list, start=1+args.task_index_offset):
+        # step 1: task solving
+        cmd = [
+            "venv/bin/python3", "run_demo.py",
+            "--task_name", f"webarena.{tid}",
+            "--websites", args.website,
+            "--headless"
         ]
         
         # Add MCP config if available
@@ -59,6 +89,7 @@ def run_vanilla():
         process = Popen(cmd)
         try:
             stdout, stderr = process.communicate(timeout=200)
+            print("Process completed successfully:")
             print(stdout)
         except subprocess.TimeoutExpired as e:
             process.kill()
@@ -66,7 +97,7 @@ def run_vanilla():
             print(f"Process timed out after {e.timeout} seconds.")
             print(stderr)
         
-        # Generate research metrics after task completion
+        # Generate research metrics after task completion (MCP enabled, ASI disabled)
         generate_research_metrics(tid, args.website, task_index, asi_enabled=False, skill_induction_attempted=False)
 
 def run_asi():
@@ -199,7 +230,8 @@ def run_asi():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", type=str, required=True,
-                        choices=["vanilla", "asi"])
+                        choices=["vanilla", "mcp", "asi"],
+                        help="vanilla: no MCP, no ASI (control group); mcp: MCP only; asi: MCP + ASI")
     parser.add_argument("--website", type=str, required=True,
                         choices=["shopping"])
     parser.add_argument("--task_ids", type=str, required=True,
@@ -211,5 +243,7 @@ if __name__ == "__main__":
 
     if args.experiment == "vanilla":
         run_vanilla()
+    elif args.experiment == "mcp":
+        run_mcp()
     elif args.experiment == "asi":
         run_asi()

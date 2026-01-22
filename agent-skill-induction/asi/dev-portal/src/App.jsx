@@ -178,7 +178,8 @@ function App() {
               { id: 'tests', label: 'Tests', icon: '✓' },
               { id: 'executor', label: 'Executor', icon: '▶' },
               { id: 'taskrunner', label: 'Task Runner', icon: '🚀' },
-              { id: 'skills', label: 'Skills', icon: '📚' }
+              { id: 'skills', label: 'Skills', icon: '📚' },
+              { id: 'cohorts', label: 'Cohorts', icon: '📊' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -204,6 +205,7 @@ function App() {
         {activeTab === 'executor' && <ExecutorTab tools={tools} executeTool={executeTool} loading={loading} />}
         {activeTab === 'taskrunner' && <TaskRunnerTab />}
         {activeTab === 'skills' && <SkillsTab />}
+        {activeTab === 'cohorts' && <CohortsTab />}
       </main>
     </div>
   )
@@ -2355,6 +2357,224 @@ function TaskRunnerTab() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CohortsTab() {
+  const [cohorts, setCohorts] = useState([])
+  const [selectedCohort, setSelectedCohort] = useState(null)
+  const [cohortAnalysis, setCohortAnalysis] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetchCohorts()
+  }, [])
+
+  const fetchCohorts = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/cohorts')
+      const data = await res.json()
+      setCohorts(data.cohorts || [])
+    } catch (err) {
+      console.error('Failed to fetch cohorts:', err)
+    }
+  }
+
+  const saveCohort = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('http://localhost:5000/api/save-cohort', {
+        method: 'POST'
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        const breakdown = Object.entries(data.breakdown)
+          .filter(([_, count]) => count > 0)
+          .map(([condition, count]) => `${condition}: ${count}`)
+          .join(', ')
+        
+        alert(`Saved ${data.files_copied} experiments to ${data.cohort}!\n\nBreakdown: ${breakdown}\n\nCohort Tasks: ${data.cohort_tasks.join(', ')}`)
+        fetchCohorts() // Refresh the cohort list
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (err) {
+      alert(`Error saving cohort: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const viewAnalysis = async (cohortName, condition = 'overall') => {
+    setLoading(true)
+    try {
+      const url = condition === 'overall' 
+        ? `http://localhost:5000/api/cohorts/${cohortName}/analysis`
+        : `http://localhost:5000/api/cohorts/${cohortName}/analysis?condition=${condition}`
+      
+      const res = await fetch(url)
+      const data = await res.json()
+      
+      if (data.analysis) {
+        setCohortAnalysis(data.analysis)
+        setSelectedCohort(`${cohortName} - ${condition}`)
+      } else {
+        alert(`Error: ${data.error}`)
+      }
+    } catch (err) {
+      alert(`Error loading analysis: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Research Cohorts</h2>
+        <p className="text-slate-600">Save and analyze experimental batches for hypothesis testing</p>
+        <div className="mt-2 text-sm text-slate-500">
+          <p>Standard cohort: 20 tasks (21-25, 47-51, 225-234) organized by experimental condition</p>
+        </div>
+      </div>
+
+      {/* Save Current Experiments Button */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Save Standard Cohort</h3>
+            <p className="text-slate-600 text-sm">Save metrics from the 20 standard tasks organized into Vanilla/MCP/ASI subdirectories</p>
+          </div>
+          <button
+            onClick={saveCohort}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium rounded-lg transition-colors"
+          >
+            {saving ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              <>
+                📊 Save Cohort
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Saved Cohorts List */}
+      <div className="bg-white border border-slate-200 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900">Saved Cohorts</h3>
+          <button
+            onClick={fetchCohorts}
+            className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+
+        {cohorts.length === 0 ? (
+          <div className="text-center py-8 text-slate-500">
+            <div className="text-4xl mb-2">📊</div>
+            <p>No cohorts saved yet</p>
+            <p className="text-sm">Click "Save Cohort" to save your current experiments</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cohorts.map((cohort) => (
+              <div key={cohort.name} className="border border-slate-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-slate-900">{cohort.name}</h4>
+                    <div className="text-sm text-slate-600 mt-1">
+                      <p>Created: {cohort.created}</p>
+                      {cohort.structure === 'organized' ? (
+                        <div>
+                          <p>{cohort.experiment_count} experiments (Standard 20-task cohort)</p>
+                          <div className="grid grid-cols-3 gap-4 mt-2">
+                            {Object.entries(cohort.condition_breakdown).map(([condition, data]) => (
+                              <div key={condition} className="bg-slate-50 rounded p-2">
+                                <div className="font-medium text-xs text-slate-800">{condition}</div>
+                                <div className="text-xs text-slate-600">{data.count} tasks</div>
+                                {data.has_analysis && (
+                                  <button
+                                    onClick={() => viewAnalysis(cohort.name, condition)}
+                                    disabled={loading}
+                                    className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                  >
+                                    📊 Analysis
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p>{cohort.experiment_count} experiments: {cohort.task_ids.slice(0, 5).join(', ')}{cohort.task_ids.length > 5 ? '...' : ''}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    {((cohort.structure === 'organized' && cohort.has_overall_analysis) || 
+                      (cohort.structure === 'legacy' && cohort.has_analysis)) && (
+                      <button
+                        onClick={() => viewAnalysis(cohort.name, 'overall')}
+                        disabled={loading}
+                        className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-lg transition-colors text-sm font-medium"
+                      >
+                        📈 Overall Analysis
+                      </button>
+                    )}
+                    <button
+                      onClick={() => window.open(`file://${cohort.path}`, '_blank')}
+                      className="px-3 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      📁 Open Folder
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Analysis Modal */}
+      {selectedCohort && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-slate-900">Analysis: {selectedCohort}</h3>
+                <button
+                  onClick={() => setSelectedCohort(null)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <pre className="text-sm text-slate-800 whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-lg">
+                {cohortAnalysis}
+              </pre>
             </div>
           </div>
         </div>
