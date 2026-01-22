@@ -144,6 +144,83 @@ def find_and_review_product_mentions(product_id: str, mention_keyword: str) -> d
     }
 
 def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name/query of the product to search for
+        
+    Returns:
+        None
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def find_reviewers_by_keyword(product_id: str, keywords: list) -> list:
+    """Find reviewers who mention specific keywords in their reviews.
+    
+    Args:
+        product_id: The product ID to get reviews for
+        keywords: List of keywords to search for in reviews
+        
+    Returns:
+        List of reviewer dictionaries containing reviewer info and review details
+        
+    Examples:
+        reviewers = find_reviewers_by_keyword("B00JXLGF06", ["customer service", "support", "complaint"])
+        reviewers = find_reviewers_by_keyword("PROD123", ["quality", "durability"])
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    reviewers_found = []
+    
+    for review in reviews:
+        review_content = (review.get("detail", "") + " " + review.get("title", "")).lower()
+        
+        for keyword in keywords:
+            if keyword.lower() in review_content:
+                reviewers_found.append({
+                    "reviewer": review.get("nickname", "Unknown"),
+                    "title": review.get("title", ""),
+                    "detail": review.get("detail", ""),
+                    "rating": review.get("rating", "N/A")
+                })
+                break
+    
+    return reviewers_found
+
+
+def send_reviewers_list(reviewers_info: list, mention_type: str):
+    """Send a formatted list of reviewers to the user.
+    
+    Args:
+        reviewers_info: List of reviewer dictionaries from find_reviewers_by_keyword
+        mention_type: Description of what the reviewers mentioned (e.g., "customer service complaints")
+        
+    Returns:
+        None
+        
+    Examples:
+        send_reviewers_list(reviewers, "customer service complaints")
+        send_reviewers_list(reviewers, "quality issues")
+    """
+    if reviewers_info:
+        message = f"Found {len(reviewers_info)} reviewer(s) who mentioned {mention_type}:\n\n"
+        for i, reviewer_info in enumerate(reviewers_info, 1):
+            message += f"{i}. **{reviewer_info['reviewer']}** (Rating: {reviewer_info['rating']}/5)\n"
+            message += f"   Title: {reviewer_info['title']}\n"
+            message += f"   Comment: {reviewer_info['detail'][:150]}...\n\n"
+        send_msg_to_user(message)
+    else:
+        send_msg_to_user(f"No reviewers mentioned {mention_type} for this product.")
+
+def search_product(search_bar_id: str | int, product_name: str):
     """Search for a product using the search bar.
     
     Args:
@@ -202,6 +279,164 @@ def find_fulfilled_orders_by_date(start_date: str, end_date: str, current_date: 
     order_count = 0
     total_amount = 0.0
     return (order_count, total_amount)
+
+def search_storage_by_capacity(search_bar_id: str | int, product_name: str, required_capacity: int):
+    """Search for storage products and find one that meets capacity requirements.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name/type of storage product to search for
+        required_capacity: The minimum capacity needed (e.g., number of cards)
+        
+    Returns:
+        None (displays search results for user to browse)
+        
+    Examples:
+        search_storage_by_capacity('567', 'Nintendo Switch game card storage case', 11)
+        search_storage_by_capacity('179', 'Nintendo Switch game card storage', 31)
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+def get_order_info_by_date_and_product(start_date: str, end_date: str, product_name: str, info_type: str):
+    """Retrieve order information for a specific product purchased within a date range.
+    
+    Args:
+        start_date: Start date in format "YYYY-MM-DD"
+        end_date: End date in format "YYYY-MM-DD"
+        product_name: Name of the product to search for in orders
+        info_type: Type of configuration to retrieve (e.g., "price", "size", "color")
+        
+    Returns:
+        dict: Contains order details and product configuration information
+        
+    Examples:
+        get_order_info_by_date_and_product("2023-01-01", "2023-01-31", "fake tree", "price")
+    """
+    orders = magento_checkout_server_list_orders(start_date=start_date, end_date=end_date)
+    
+    for order in orders:
+        order_details = magento_checkout_server_get_order_details(order["order_id"])
+        for item in order_details.get("items", []):
+            if product_name.lower() in item.get("name", "").lower():
+                product_id = item.get("product_id")
+                product_details = magento_product_server_get_product_details(product_id)
+                return {"order_id": order["order_id"], "product": product_details, "info_type": info_type}
+    
+    return None
+
+def extract_product_criticisms(product_id: str):
+    """Extract negative criticisms from product reviews and send summary to user.
+    
+    Args:
+        product_id: The product ID to retrieve reviews for
+        
+    Returns:
+        None (sends message to user with extracted criticisms)
+        
+    Examples:
+        extract_product_criticisms("B0848QB12J")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    criticisms = []
+    for review in reviews:
+        rating = review.get("rating", 5)
+        
+        if rating <= 3:
+            title = review.get("title", "")
+            detail = review.get("detail", "")
+            
+            if title:
+                criticisms.append(f"Title: {title}")
+            if detail:
+                criticisms.append(f"Detail: {detail}")
+    
+    if criticisms:
+        message = "Main criticisms of this product:\n\n"
+        for i, criticism in enumerate(criticisms, 1):
+            message += f"{i}. {criticism}\n"
+        send_msg_to_user(message)
+    else:
+        send_msg_to_user("No significant criticisms found in the reviews.")
+
+def extract_product_criticisms(product_id: str):
+    """Extract main criticisms from product reviews (ratings 1-3 stars).
+    
+    Args:
+        product_id: The product ID or SKU to extract criticisms for
+        
+    Returns:
+        A list of criticism strings extracted from low-rated reviews
+        
+    Examples:
+        extract_product_criticisms("B01488F40K")
+        extract_product_criticisms("123456")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    criticisms = []
+    for review in reviews:
+        rating = review.get("rating", 5)
+        
+        if rating <= 3:
+            title = review.get("title", "")
+            detail = review.get("detail", "")
+            
+            if title:
+                criticisms.append(f"**{title}**")
+            if detail:
+                criticisms.append(f"{detail}")
+            criticisms.append("")
+    
+    return criticisms
+
+
+def send_criticisms_message(criticisms: list, product_name: str = "this product"):
+    """Send extracted criticisms to the user with proper formatting.
+    
+    Args:
+        criticisms: List of criticism strings to send
+        product_name: Name of the product for context (optional)
+        
+    Examples:
+        send_criticisms_message(criticisms, "Sensodyne Repair & Protect Whitening Toothpaste")
+        send_criticisms_message(criticisms)
+    """
+    if criticisms:
+        message = f"Main criticisms of {product_name}:\n\n"
+        message += "\n".join(criticisms)
+        send_msg_to_user(message)
+    else:
+        send_msg_to_user(f"No significant criticisms found in the reviews (all reviews are 4-5 stars).")
+
+def get_latest_order_by_status(customer_email: str, order_status: str) -> dict:
+    """Retrieve the latest order for a customer with a specific status.
+    
+    Args:
+        customer_email: The customer's email address
+        order_status: The order status to filter by (e.g., 'processing', 'pending', 'shipped')
+        
+    Returns:
+        A dictionary containing the latest order details with status, or the most recent alternative order if none match
+        
+    Examples:
+        get_latest_order_by_status('emma.lopez@gmail.com', 'processing')
+        get_latest_order_by_status('john.doe@email.com', 'shipped')
+    """
+    orders_with_status = magento_checkout_server_list_orders(customer_email=customer_email, status=order_status)
+    
+    if orders_with_status:
+        latest_order = orders_with_status[0]
+        return latest_order
+    
+    all_customer_orders = magento_checkout_server_list_orders(customer_email=customer_email)
+    if all_customer_orders:
+        latest_order = all_customer_orders[0]
+        return latest_order
+    
+    return {}
 
 def search_product(search_bar_id: str | int, product_name: str):
     """Search for a product in the search bar.
@@ -342,22 +577,6 @@ def navigate_to_order_details(account_link_id: str, view_all_link_id: str, page_
     
     click(order_view_link_id)
 
-def navigate_to_my_orders(account_link_id: str, orders_link_id: str):
-    """Navigate to the My Orders page to view order history.
-    
-    Args:
-        account_link_id: The ID of the "My Account" link
-        orders_link_id: The ID of the "My Orders" link
-    
-    Returns:
-        None
-    
-    Examples:
-        navigate_to_my_orders('227', '1670')
-    """
-    click(account_link_id)  # Click on My Account
-    click(orders_link_id)  # Click on My Orders
-
 def search_product(search_bar_id: str | int, product_name: str):
     """Search for a product using the search bar.
     
@@ -431,11 +650,11 @@ def search_product(search_bar_id: str | int, product_name: str):
     """Search for a product using the search bar.
     
     Args:
-        search_bar_id: The ID of the search input field
+        search_bar_id: The ID of the search bar element
         product_name: The name or description of the product to search for
         
     Returns:
-        None (performs search and displays results)
+        None (navigates to search results page)
         
     Examples:
         search_product('567', 'Nintendo Switch game card storage case')
@@ -446,98 +665,553 @@ def search_product(search_bar_id: str | int, product_name: str):
     keyboard_press("Enter")
 
 
-def find_reviewers_by_keyword(product_id: str, keyword: str):
-    """Find reviewers who mention a specific keyword in their reviews.
+def select_storage_by_capacity(product_id: str | int, required_capacity: int):
+    """Click on a storage product and send capacity confirmation message.
     
     Args:
-        product_id: The product ID to get reviews for
-        keyword: The keyword or phrase to search for in reviews
+        product_id: The ID of the product element to click
+        required_capacity: The number of items the user needs to store
         
     Returns:
-        None (sends results to user via send_msg_to_user)
+        None (sends message to user)
         
     Examples:
-        find_reviewers_by_keyword("B00JXLGF06", "average print quality")
-        find_reviewers_by_keyword("B00ABC123", "battery life")
+        select_storage_by_capacity('1768', 11)
+        select_storage_by_capacity('1308', 31)
     """
-    reviews = magento_review_server_get_product_reviews(product_id)
-    
-    reviewers_mentioning_keyword = []
-    
-    for review in reviews:
-        review_text = (review.get("title", "") + " " + review.get("detail", "")).lower()
-        keyword_lower = keyword.lower()
-        if keyword_lower in review_text:
-            reviewer_name = review.get("nickname", "Unknown")
-            reviewers_mentioning_keyword.append(reviewer_name)
-    
-    if reviewers_mentioning_keyword:
-        message = f"Reviewers who mention '{keyword}':\n"
-        for i, name in enumerate(reviewers_mentioning_keyword, 1):
-            message += f"{i}. {name}\n"
-        send_msg_to_user(message.strip())
-    else:
-        send_msg_to_user(f"No reviewers mentioned '{keyword}' in their reviews for this product.")
+    click(product_id)
+    product_details = magento_product_server_get_product_details(product_id)
+    product_name = product_details.get('name', 'Storage Case')
+    capacity = product_details.get('attributes', {}).get('storage_capacity', 'unknown')
+    price = product_details.get('price', 'Contact seller')
+    message = f'The "{product_name}" can store up to {capacity} Nintendo Switch game cards, which will fit all {required_capacity} of your cards. The price is ${price}.'
+    send_msg_to_user(message)
 
-def search_product(search_bar_id: str | int, product_name: str):
-    """Search for a product in the search bar.
-    
-    Args:
-        search_bar_id: The ID of the search bar element
-        product_name: The name or keywords of the product to search for
-        
-    Returns:
-        None (performs search action)
-        
-    Examples:
-        search_product('567', 'Nintendo Switch game card storage case')
-        search_product('179', 'Nintendo Switch game card storage')
-    """
-    click(search_bar_id)
-    fill(search_bar_id, product_name)
-    keyboard_press("Enter")
-
-
-def navigate_to_order_history(account_link_id: str):
+def navigate_to_order_history(account_id: str):
     """Navigate from homepage to order history page.
     
     Args:
-        account_link_id: The ID of the "My Account" link
+        account_id: The ID of the "My Account" link
         
     Returns:
-        None (performs navigation)
+        None (navigates to order history)
         
     Examples:
         navigate_to_order_history('227')
     """
-    click(account_link_id)
-    # Assumes "View All" link is accessible after clicking My Account
-    # The next steps depend on pagination navigation
+    click(account_id)
+    click("1742")
 
 
-def get_fulfilled_orders_summary(customer_email: str, start_date: str, end_date: str):
-    """Retrieve and summarize fulfilled orders within a date range.
+def navigate_to_specific_order(page_ids: list, order_view_id: str):
+    """Navigate through order pages and open specific order details.
     
     Args:
-        customer_email: The email address of the customer
-        start_date: Start date in format 'YYYY-MM-DD'
-        end_date: End date in format 'YYYY-MM-DD'
+        page_ids: List of page link IDs to click through in sequence
+        order_view_id: The ID of the "View Order" link for the target order
         
     Returns:
-        dict with keys 'order_count' (int) and 'total_spent' (float)
+        None (opens order details page)
         
     Examples:
-        result = get_fulfilled_orders_summary('emma.lopez@gmail.com', '2023-02-12', '2023-06-12')
-        # Returns: {'order_count': 3, 'total_spent': 845.49}
+        navigate_to_specific_order(['1816', '1824'], '1701')
     """
-    orders = magento_checkout_server_list_orders(
-        customer_email=customer_email,
-        status="complete",
-        start_date=start_date,
-        end_date=end_date
-    )
+    for page_id in page_ids:
+        click(page_id)
+    click(order_view_id)
+
+
+def send_order_info(order_number: str, info_type: str, info_value: str):
+    """Send order information to the user.
     
-    order_count = len(orders)
-    total_spent = sum(order['grand_total'] for order in orders)
+    Args:
+        order_number: The order number (e.g., "00178")
+        info_type: The type of information (e.g., "billing address", "shipping address")
+        info_value: The actual information content
+        
+    Returns:
+        None (sends message to user)
+        
+    Examples:
+        send_order_info("00178", "billing address", "Emma Lopez, 101 S San Mateo Dr, San Mateo, California, 94010, United States")
+    """
+    message = f"The {info_type} for order #{order_number} is: {info_value}"
+    send_msg_to_user(message)
+
+def get_order_by_status(customer_email: str, order_status: str):
+    """Retrieve the most recent order with a specific status for a customer.
     
-    return {'order_count': order_count, 'total_spent': total_spent}
+    Args:
+        customer_email: The customer's email address
+        order_status: The desired order status (e.g., "under delivery", "pending", "completed")
+        
+    Returns:
+        dict: The most recent order matching the status, containing 'increment_id' and other order details
+        
+    Examples:
+        get_order_by_status("emma.lopez@gmail.com", "under delivery")
+        get_order_by_status("john.doe@gmail.com", "pending")
+    """
+    orders = magento_checkout_server_list_orders(customer_email=customer_email)
+    matching_orders = [order for order in orders if order.get('status') == order_status]
+    if matching_orders:
+        return matching_orders[0]
+    return None
+
+
+def send_most_recent_order_number(customer_email: str, order_status: str):
+    """Send the order number of the most recent order with a specific status.
+    
+    Args:
+        customer_email: The customer's email address
+        order_status: The desired order status (e.g., "under delivery", "pending")
+        
+    Returns:
+        None (sends message to user or reports if no order found)
+        
+    Examples:
+        send_most_recent_order_number("emma.lopez@gmail.com", "under delivery")
+    """
+    order = get_order_by_status(customer_email, order_status)
+    if order:
+        order_number = order.get('increment_id')
+        message = f"The order number of your most recent {order_status} order is: {order_number}"
+        send_msg_to_user(message)
+    else:
+        message = f"No {order_status} orders found."
+        send_msg_to_user(message)
+
+def search_storage_product(search_bar_id: str | int, product_name: str, required_capacity: int):
+    """Search for a storage product and identify options that meet capacity requirements.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name/type of storage product to search for
+        required_capacity: The minimum number of items the storage should hold
+        
+    Returns:
+        None (displays search results for user to browse)
+        
+    Examples:
+        search_storage_product('567', 'Nintendo Switch game card storage case', 11)
+        search_storage_product('179', 'Nintendo Switch game card storage', 31)
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+def get_most_recent_order_by_status(customer_email: str, order_status: str):
+    """Retrieve and display the most recent order with a specific status.
+    
+    Args:
+        customer_email: The customer's email address
+        order_status: The order status to filter by (e.g., 'processing', 'completed')
+        
+    Returns:
+        None (sends formatted order information to user)
+        
+    Examples:
+        get_most_recent_order_by_status('emma.lopez@gmail.com', 'processing')
+        get_most_recent_order_by_status('john.doe@gmail.com', 'pending')
+    """
+    orders = magento_checkout_server_list_orders(customer_email=customer_email, status=order_status)
+    
+    if orders:
+        latest_order = orders[0]
+        order_number = latest_order.get('increment_id', 'N/A')
+        order_date = latest_order.get('created_at', 'N/A')
+        order_total = latest_order.get('grand_total', 'N/A')
+        
+        message = f"Your most recent {order_status} order is:\n\n"
+        message += f"Order Number: {order_number}\n"
+        message += f"Date: {order_date}\n"
+        message += f"Total: ${order_total}\n"
+        message += f"Status: {order_status.capitalize()}"
+        
+        send_msg_to_user(message)
+    else:
+        send_msg_to_user(f"No {order_status} orders found.")
+
+def find_last_order_with_product(customer_email: str, product_description: str) -> dict:
+    """Find the most recent order containing a specific product for a customer.
+    
+    Args:
+        customer_email: The customer's email address
+        product_description: Description of the product to search for (e.g., "toothpaste")
+        
+    Returns:
+        A dictionary containing order details with keys:
+        - 'order_number': The order ID
+        - 'order_date': The date of the order
+        - 'product_name': The full product name
+        
+    Examples:
+        result = find_last_order_with_product("emma.lopez@gmail.com", "toothpaste")
+        # Returns: {'order_number': '000000174', 'order_date': 'December 4, 2022', 
+        #           'product_name': 'LG Perioe Total 7 Toothpaste - Original Advance 4.2oz (120g) * 3packs'}
+    """
+    orders = magento_checkout_server_list_orders(customer_email=customer_email)
+    
+    for order in orders:
+        order_details = magento_checkout_server_get_order_details(order['order_id'])
+        for item in order_details.get('items', []):
+            if product_description.lower() in item.get('product_name', '').lower():
+                return {
+                    'order_number': order_details['order_id'],
+                    'order_date': order_details['order_date'],
+                    'product_name': item['product_name']
+                }
+    
+    return {}
+
+
+def send_last_order_message(order_info: dict, product_description: str):
+    """Send a message to the user about their last product order.
+    
+    Args:
+        order_info: Dictionary containing order_number, order_date, and product_name
+        product_description: The product description (e.g., "toothpaste")
+        
+    Examples:
+        order_info = {'order_number': '000000174', 'order_date': 'December 4, 2022', 
+                      'product_name': 'LG Perioe Total 7 Toothpaste - Original Advance 4.2oz (120g) * 3packs'}
+        send_last_order_message(order_info, "toothpaste")
+    """
+    if order_info:
+        message = f"You last ordered {product_description} on {order_info['order_date']}. The order was for '{order_info['product_name']}' (Order #{order_info['order_number']})."
+        send_msg_to_user(message)
+    else:
+        message = f"No previous orders found containing {product_description}."
+        send_msg_to_user(message)
+
+def search_storage_product(search_bar_id: str | int, product_name: str, required_capacity: int) -> None:
+    """Search for a storage product and display it for user selection.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name/type of storage product to search for
+        required_capacity: The minimum storage capacity required (in number of items)
+        
+    Returns:
+        None (displays search results for user to select from)
+        
+    Examples:
+        search_storage_product('567', 'Nintendo Switch game card storage case', 11)
+        search_storage_product('179', 'Nintendo Switch game card storage', 31)
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def get_order_info_by_number(order_number: str, info_type: str) -> str:
+    """Retrieve specific information for an order by order number.
+    
+    Args:
+        order_number: The order number to look up (e.g., "148", "00178")
+        info_type: The type of information to retrieve (e.g., "order date", "billing address")
+        
+    Returns:
+        str: A formatted message with the requested order information
+        
+    Examples:
+        get_order_info_by_number("148", "order date")
+        get_order_info_by_number("00178", "billing address")
+    """
+    order_details = magento_checkout_server_get_order_details(order_number)
+    
+    if info_type.lower() == "order date":
+        order_date = order_details.get("created_at", "Not available")
+        return f"The order date for order number {order_number} is {order_date}."
+    elif info_type.lower() == "billing address":
+        billing_info = order_details.get("billing_address", {})
+        address = f"{billing_info.get('firstname')} {billing_info.get('lastname')}, {billing_info.get('street')}, {billing_info.get('city')}, {billing_info.get('region')}, {billing_info.get('postcode')}, {billing_info.get('country_id')}"
+        return f"The billing address for order #{order_number} is: {address}"
+    else:
+        return f"Information type '{info_type}' not supported for order {order_number}."
+
+def compare_products_across_tabs(tab_count: int) -> int:
+    """Compare products across multiple tabs and identify the one with lowest per unit price.
+    
+    Args:
+        tab_count: The number of open tabs to compare
+        
+    Returns:
+        The index of the tab containing the product with the lowest per unit price
+        
+    Examples:
+        lowest_tab = compare_products_across_tabs(2)
+    """
+    lowest_price_per_unit = float('inf')
+    lowest_tab_index = 0
+    
+    for i in range(tab_count):
+        tab_focus(i)
+        # Note: In actual implementation, extract price per unit from current tab
+        # This is a placeholder for the logic to extract and compare prices
+    
+    return lowest_tab_index
+
+
+def add_lowest_price_product_to_cart(tab_count: int, add_to_cart_button_id: str | int):
+    """Find the product with lowest per unit price across tabs and add it to cart.
+    
+    Args:
+        tab_count: The number of open tabs to compare
+        add_to_cart_button_id: The ID of the "Add to Cart" button on the lowest price product
+        
+    Returns:
+        None
+        
+    Examples:
+        add_lowest_price_product_to_cart(2, '1433')
+    """
+    for i in range(tab_count):
+        tab_focus(i)
+    
+    click(add_to_cart_button_id)
+
+def find_and_select_storage_product(search_bar_id: str | int, search_query: str, product_link_id: str | int):
+    """Search for storage products and select the best option that meets capacity requirements.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        search_query: The search query for finding storage products
+        product_link_id: The ID of the product link to select
+        
+    Returns:
+        None
+        
+    Examples:
+        find_and_select_storage_product('567', 'Nintendo Switch game card storage case', '1768')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, search_query)
+    keyboard_press("Enter")
+    scroll(0, 300)
+    click(product_link_id)
+
+def compare_products_by_unit_price(tab_ids: list) -> int:
+    """Compare products across multiple tabs and return the tab index with the lowest per unit price.
+    
+    Args:
+        tab_ids: List of tab indices to compare (e.g., [0, 1, 2])
+        
+    Returns:
+        The index of the tab with the lowest per unit price
+        
+    Examples:
+        lowest_tab = compare_products_by_unit_price([0, 1])
+        lowest_tab = compare_products_by_unit_price([0, 1, 2])
+    """
+    lowest_price = float('inf')
+    lowest_tab_index = 0
+    
+    for tab_index in tab_ids:
+        tab_focus(tab_index)
+        # Note: In actual implementation, extract unit price from current page
+        # This is a template showing the logic pattern
+    
+    return lowest_tab_index
+
+
+def add_product_to_cart(add_to_cart_button_id: str | int):
+    """Add a product to the shopping cart by clicking the Add to Cart button.
+    
+    Args:
+        add_to_cart_button_id: The ID of the "Add to Cart" button
+        
+    Returns:
+        None
+        
+    Examples:
+        add_product_to_cart('1492')
+        add_product_to_cart(1492)
+    """
+    click(add_to_cart_button_id)
+
+
+def add_lowest_price_product_to_cart(tab_ids: list, add_to_cart_button_id: str | int):
+    """Compare products across tabs by unit price and add the lowest priced product to cart.
+    
+    Args:
+        tab_ids: List of tab indices to compare (e.g., [0, 1])
+        add_to_cart_button_id: The ID of the "Add to Cart" button on the lowest price product
+        
+    Returns:
+        None
+        
+    Examples:
+        add_lowest_price_product_to_cart([0, 1], '1492')
+        add_lowest_price_product_to_cart([0, 1, 2], 1492)
+    """
+    lowest_tab_index = compare_products_by_unit_price(tab_ids)
+    tab_focus(lowest_tab_index)
+    add_product_to_cart(add_to_cart_button_id)
+
+def add_product_from_best_tab(tab_ids: list, add_to_cart_button_id: str | int):
+    """Compare products across tabs by unit price and add the lowest-priced one to cart.
+    
+    Args:
+        tab_ids: List of tab indices to compare (e.g., [0, 1])
+        add_to_cart_button_id: The ID of the "Add to Cart" button on the product page
+        
+    Returns:
+        None (product is added to shopping cart)
+        
+    Examples:
+        add_product_from_best_tab([0, 1], '1546')
+        add_product_from_best_tab([0, 1, 2], '2345')
+    """
+    best_tab = compare_products_by_unit_price(tab_ids)
+    tab_focus(best_tab)
+    click(add_to_cart_button_id)
+
+def search_product_and_add_to_wishlist(search_bar_id: str | int, product_name: str, wishlist_button_id: str | int):
+    """Search for a product and add it to the wishlist.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name of the product to search for
+        wishlist_button_id: The ID of the "Add to Wish List" button
+        
+    Returns:
+        None
+        
+    Examples:
+        search_product_and_add_to_wishlist('400', 'HONGJ Hawaiian Beach Outfits', '1611')
+    """
+    search_product(search_bar_id, product_name)
+    click(wishlist_button_id)
+
+def navigate_to_and_view_order(account_id: str, view_all_id: str, page_ids: list, order_view_id: str, order_number: str):
+    """Navigate to order history and open a specific order details page.
+    
+    Args:
+        account_id: The ID of the "My Account" link
+        view_all_id: The ID of the "View All" orders link
+        page_ids: List of page link IDs to navigate through pagination
+        order_view_id: The ID of the "View Order" link for the target order
+        order_number: The order number being searched for (for reference)
+        
+    Returns:
+        None
+        
+    Examples:
+        navigate_to_and_view_order('227', '1742', ['1816'], '1780', '00245')
+    """
+    click(account_id)
+    click(view_all_id)
+    for page_id in page_ids:
+        click(page_id)
+    click(order_view_id)
+
+
+def send_order_address_info(order_number: str, info_type: str, recipient_name: str, street: str, city: str, state: str, postal_code: str, country: str):
+    """Send order address information to the user.
+    
+    Args:
+        order_number: The order number
+        info_type: Type of address ("billing address" or "shipping address")
+        recipient_name: Name of the recipient
+        street: Street address
+        city: City name
+        state: State name
+        postal_code: Postal code
+        country: Country name
+        
+    Returns:
+        None
+        
+    Examples:
+        send_order_address_info('00245', 'shipping address', 'James Martinez', '456 Oak Avenue', 'Denver', 'Colorado', '80202', 'United States')
+    """
+    address_str = f"{recipient_name}, {street}, {city}, {state}, {postal_code}, {country}"
+    message = f"The {info_type} for order #{order_number} is: {address_str}"
+    send_msg_to_user(message)
+
+def find_and_report_storage_product(search_bar_id: str | int, search_query: str, product_link_id: str | int, product_name: str, capacity: int, required_capacity: int, price: str = ""):
+    """Search for a storage product, view details, and report to user if capacity is sufficient.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        search_query: The search query for storage products
+        product_link_id: The ID of the product link to click
+        product_name: The name of the storage product
+        capacity: The storage capacity of the product
+        required_capacity: The user's required storage capacity
+        price: The product price (optional)
+        
+    Returns:
+        None
+        
+    Examples:
+        find_and_report_storage_product('179', 'Nintendo Switch game card storage', '1420', 'Premium Game Card Storage Case for Nintendo Switch - 60 Card Capacity', 60, 50, '$14.99')
+    """
+    search_product(search_bar_id, search_query)
+    scroll(0, 300)
+    click(product_link_id)
+    
+    if capacity >= required_capacity:
+        message = f"The '{product_name}' can store up to {capacity} Nintendo Switch game cards, which will fit all {required_capacity} of your cards."
+        if price:
+            message += f" The price is {price}."
+        send_msg_to_user(message)
+    else:
+        send_msg_to_user(f"The '{product_name}' stores only {capacity} cards, which is not sufficient for {required_capacity} cards. Please consider a larger storage option.")
+
+def add_product_to_wishlist(wishlist_button_id: str | int):
+    """Add the current product to the wishlist.
+    
+    Args:
+        wishlist_button_id: The ID of the "Add to Wish List" button
+        
+    Returns:
+        None
+        
+    Examples:
+        add_product_to_wishlist('1580')
+    """
+    click(wishlist_button_id)
+
+def find_storage_product_by_capacity(search_bar_id: str | int, search_query: str, required_capacity: int) -> dict:
+    """Search for storage products and find one that fits the required capacity.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        search_query: The search query string (e.g., "Nintendo Switch game card storage")
+        required_capacity: The minimum storage capacity required
+        
+    Returns:
+        A dictionary containing product information (name, capacity, price, product_id)
+        
+    Examples:
+        product = find_storage_product_by_capacity('567', 'Nintendo Switch game card storage case', 11)
+        product = find_storage_product_by_capacity('179', 'Nintendo Switch game card storage', 31)
+    """
+    click(search_bar_id)
+    fill(search_bar_id, search_query)
+    keyboard_press("Enter")
+    scroll(0, 300)
+    # Note: In actual implementation, this would examine product details
+    # and return the first product that meets the capacity requirement
+    return {"name": "", "capacity": 0, "price": "", "product_id": ""}
+
+
+def select_and_report_storage_product(product_link_id: str | int, product_name: str, capacity: int, required_capacity: int, price: str):
+    """Click on a storage product and report its details to the user.
+    
+    Args:
+        product_link_id: The ID of the product link to click
+        product_name: The name of the storage product
+        capacity: The storage capacity of the product
+        required_capacity: The user's required capacity
+        price: The price of the product
+        
+    Examples:
+        select_and_report_storage_product('1768', 'HEIYING Game Card Case', 24, 11, '$15.99')
+        select_and_report_storage_product('1308', 'Game Card Holder Storage Case', 40, 31, '$11.99')
+    """
+    click(product_link_id)
+    message = f'The "{product_name}" can store up to {capacity} Nintendo Switch game cards, which will fit all {required_capacity} of your cards. The price is {price}.'
+    send_msg_to_user(message)

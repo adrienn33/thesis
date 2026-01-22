@@ -1,0 +1,88 @@
+{
+  "sites": [
+    "shopping"
+  ],
+  "task_id": "188-mcp-container",
+  "require_login": true,
+  "storage_state": "./.auth/shopping_state.json",
+  "start_url": "localhost:7770",
+  "geolocation": null,
+  "intent_template": "Tell me the total cost of my latest {{status}} order?",
+  "instantiation_dict": {
+    "status": "cancelled"
+  },
+  "intent": "Tell me the total cost of my latest cancelled order?",
+  "require_reset": false,
+  "eval": {
+    "eval_types": [
+      "string_match"
+    ],
+    "reference_answers": {
+      "must_include": [
+        "365.42"
+      ]
+    },
+    "reference_url": "",
+    "program_html": [],
+    "string_note": "",
+    "reference_answer_raw_annotation": "365.42"
+  },
+  "intent_template_id": 214,
+  "mcp_servers": [
+    {
+      "name": "magento-review-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_review_data.py"
+      ]
+    },
+    {
+      "name": "magento-product-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_products.py"
+      ]
+    },
+    {
+      "name": "magento-checkout-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_checkout.py"
+      ]
+    },
+    {
+      "name": "magento-wishlist-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_wishlist.py"
+      ]
+    },
+    {
+      "name": "magento-account-server",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "shopping",
+        "python3",
+        "/tmp/magento_account.py"
+      ]
+    }
+  ]
+}
