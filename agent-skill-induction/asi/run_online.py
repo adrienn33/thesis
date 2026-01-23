@@ -61,8 +61,8 @@ def run_vanilla():
             print(f"Process timed out after {e.timeout} seconds.")
             print(stderr)
         
-        # Generate research metrics after task completion
-        generate_research_metrics(tid, args.website, task_index, asi_enabled=False, skill_induction_attempted=False)
+        # Generate research metrics after task completion (Vanilla: no MCP, no ASI)
+        generate_research_metrics(tid, args.website, task_index, asi_enabled=False, mcp_enabled=False, skill_induction_attempted=False)
 
 def run_mcp():
     """Run MCP-only experiments - MCP enabled, no ASI"""
@@ -98,7 +98,7 @@ def run_mcp():
             print(stderr)
         
         # Generate research metrics after task completion (MCP enabled, ASI disabled)
-        generate_research_metrics(tid, args.website, task_index, asi_enabled=False, skill_induction_attempted=False)
+        generate_research_metrics(tid, args.website, task_index, asi_enabled=False, mcp_enabled=True, skill_induction_attempted=False)
 
 def run_asi():
     task_id_list = parse_task_ids(args.task_ids)
@@ -149,8 +149,8 @@ def run_asi():
             should_induce = False
         
         if not should_induce:
-            # Generate metrics even for failed tasks
-            generate_research_metrics(tid, args.website, task_index, asi_enabled=True, skill_induction_attempted=False)
+            # Generate metrics even for failed tasks (ASI: MCP enabled, ASI enabled but no induction attempted)
+            generate_research_metrics(tid, args.website, task_index, asi_enabled=True, mcp_enabled=True, skill_induction_attempted=False)
             continue
 
         # step 2: eval traj (COMMENTED OUT - evaluator is unreliable)
@@ -218,10 +218,122 @@ def run_asi():
                 print(f"[ASI] Partial stderr:\n{err_str}")
         # input("[3] Completed induced workflow")
         
-        # Generate research metrics after task completion
+        # Generate research metrics after task completion (ASI: MCP enabled, ASI enabled with induction)
         generate_research_metrics(
             tid, args.website, task_index, 
             asi_enabled=True, 
+            mcp_enabled=True,
+            skill_induction_attempted=True,
+            induced_skills_count=induced_skills_count,
+            induced_skills_names=induced_skills_names
+        )
+
+def run_vanilla_asi():
+    """Run Vanilla+ASI experiments - ASI enabled without MCP tools"""
+    task_id_list = parse_task_ids(args.task_ids)
+    for task_index, tid in enumerate(task_id_list, start=1+args.task_index_offset):
+        # step 1: task solving
+        cmd = [
+            "venv/bin/python3", "run_demo.py",
+            "--task_name", f"webarena.{tid}",
+            "--headless"
+        ]
+        
+        # VANILLA+ASI: No MCP config at all - pure ASI without tools
+        # Don't add any --mcp_config parameter
+        
+        process = Popen(cmd)
+        try:
+            stdout, stderr = process.communicate(timeout=300)
+            print("Process completed successfully:")
+            print(stdout)
+        except subprocess.TimeoutExpired as e:
+            process.kill()
+            stdout, stderr = process.communicate() # Clean up resources
+            print(f"Process timed out after {e.timeout} seconds.")
+            print(stderr)
+            continue
+        # input("[1] Completed task solving")
+        path = f"results/webarena.{tid}/summary_info.json"
+        if not os.path.exists(path):
+            print(f"Warning: {path} not found, skipping task {tid}")
+            continue
+        
+        summary = json.load(open(path, 'r'))
+        
+        # Check if task should proceed with skill induction
+        should_induce = True
+        if summary["n_steps"] < 1: 
+            print(f"Task {tid} only had {summary['n_steps']} steps (< 1 required), skipping skill induction")
+            should_induce = False
+        elif summary.get("cum_reward", 0) < 1.0:
+            print(f"Task {tid} did not achieve reward >= 1.0 (got {summary.get('cum_reward', 0)}), skipping skill induction")
+            should_induce = False
+        
+        if not should_induce:
+            # Generate metrics even for failed tasks (Vanilla+ASI: no MCP, ASI enabled but no induction attempted)
+            generate_research_metrics(tid, args.website, task_index, asi_enabled=True, mcp_enabled=False, skill_induction_attempted=False)
+            continue
+
+        process = Popen([
+            "venv/bin/python3", "-m", "results.calc_valid_steps",
+            "--clean_and_store", "--result_dir", f"results/webarena.{tid}",
+        ])
+        process.wait()  # output 'clean_steps.json'
+        # input("[2.2] Completed clean trajectory")
+
+        # step 3: induce actions
+        logger.info(f"[Vanilla+ASI] Starting skill induction for task {tid}...")
+        print(f"[Vanilla+ASI] Starting skill induction for task {tid}...")
+        process = Popen([
+            "venv/bin/python3", "-m", "induce.induce_actions",
+            "--website", args.website,
+            "--result_id_list", tid,
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        induced_skills_count = 0
+        induced_skills_names = []
+        
+        try:
+            stdout, stderr = process.communicate(timeout=200)
+            output_str = stdout.decode() if isinstance(stdout, bytes) else stdout
+            
+            if stdout:
+                logger.info(f"[Vanilla+ASI] Skill induction output:\n{output_str}")
+                print(f"[Vanilla+ASI] Skill induction output:\n{output_str}")
+                
+                # Parse induced skills from output: "Induced #2|2 Actions, [...] ['skill1', 'skill2']"
+                import re
+                match = re.search(r'Induced #(\d+)\|\d+ Actions.*?\[(.*?)\]\s*\[(.*?)\]', output_str, re.DOTALL)
+                if match:
+                    induced_skills_count = int(match.group(1))
+                    names_str = match.group(3)
+                    if names_str:
+                        induced_skills_names = [n.strip().strip("'\"") for n in names_str.split(',') if n.strip()]
+                
+            if stderr:
+                err_str = stderr.decode() if isinstance(stderr, bytes) else stderr
+                logger.warning(f"[Vanilla+ASI] Skill induction errors:\n{err_str}")
+                print(f"[Vanilla+ASI] Skill induction errors:\n{err_str}")
+            
+            logger.info(f"[Vanilla+ASI] Skill induction completed for task {tid}")
+            print(f"[Vanilla+ASI] Skill induction completed for task {tid}")
+        except subprocess.TimeoutExpired as e:
+            process.kill()
+            stdout, stderr = process.communicate() # Clean up resources
+            logger.error(f"[Vanilla+ASI] ERROR: Skill induction timed out after {e.timeout} seconds for task {tid}")
+            print(f"[Vanilla+ASI] ERROR: Skill induction timed out after {e.timeout} seconds for task {tid}")
+            if stderr:
+                err_str = stderr.decode() if isinstance(stderr, bytes) else stderr
+                logger.error(f"[Vanilla+ASI] Partial stderr:\n{err_str}")
+                print(f"[Vanilla+ASI] Partial stderr:\n{err_str}")
+        # input("[3] Completed induced workflow")
+        
+        # Generate research metrics after task completion (Vanilla+ASI: no MCP, ASI enabled with induction)
+        generate_research_metrics(
+            tid, args.website, task_index, 
+            asi_enabled=True, 
+            mcp_enabled=False,
             skill_induction_attempted=True,
             induced_skills_count=induced_skills_count,
             induced_skills_names=induced_skills_names
@@ -230,8 +342,8 @@ def run_asi():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", type=str, required=True,
-                        choices=["vanilla", "mcp", "asi"],
-                        help="vanilla: no MCP, no ASI (control group); mcp: MCP only; asi: MCP + ASI")
+                        choices=["vanilla", "vanilla_asi", "mcp", "mcp_asi"],
+                        help="vanilla: no MCP, no ASI (control); vanilla_asi: no MCP, ASI only; mcp: MCP only; mcp_asi: MCP + ASI")
     parser.add_argument("--website", type=str, required=True,
                         choices=["shopping"])
     parser.add_argument("--task_ids", type=str, required=True,
@@ -243,7 +355,9 @@ if __name__ == "__main__":
 
     if args.experiment == "vanilla":
         run_vanilla()
+    elif args.experiment == "vanilla_asi":
+        run_vanilla_asi()
     elif args.experiment == "mcp":
         run_mcp()
-    elif args.experiment == "asi":
-        run_asi()
+    elif args.experiment == "mcp_asi":
+        run_asi()  # rename for clarity

@@ -329,11 +329,13 @@ def run_task():
     if not os.path.exists(config_file):
         return jsonify({'error': f'Config file not found: {config_file}'}), 404
     
-    # Determine experiment mode based on MCP and ASI settings
+    # Determine experiment mode based on MCP and ASI settings (2x2 factorial design)
     if use_asi and use_mcp:
-        experiment_mode = 'asi'  # MCP + ASI
+        experiment_mode = 'mcp_asi'  # MCP + ASI
     elif use_mcp and not use_asi:
         experiment_mode = 'mcp'  # MCP only
+    elif use_asi and not use_mcp:
+        experiment_mode = 'vanilla_asi'  # Vanilla + ASI (no MCP tools)
     else:
         experiment_mode = 'vanilla'  # No MCP, no ASI (true control)
     
@@ -423,36 +425,41 @@ def save_cohort():
         cohort_dir = final_dir / f'cohort_{next_cohort_num}'
         cohort_dir.mkdir(exist_ok=True)
         
-        # Create subdirectories for experimental conditions
+        # Create subdirectories for experimental conditions (2x2 factorial design)
         vanilla_dir = cohort_dir / 'Vanilla'
+        vanilla_asi_dir = cohort_dir / 'Vanilla+ASI'
         mcp_dir = cohort_dir / 'MCP'  
-        asi_dir = cohort_dir / 'ASI'
+        mcp_asi_dir = cohort_dir / 'MCP+ASI'
         
         vanilla_dir.mkdir(exist_ok=True)
+        vanilla_asi_dir.mkdir(exist_ok=True)
         mcp_dir.mkdir(exist_ok=True)
-        asi_dir.mkdir(exist_ok=True)
+        mcp_asi_dir.mkdir(exist_ok=True)
         
         # Sort files by experimental condition and copy
-        copied_stats = {'Vanilla': 0, 'MCP': 0, 'ASI': 0}
-        task_ids_by_condition = {'Vanilla': [], 'MCP': [], 'ASI': []}
+        copied_stats = {'Vanilla': 0, 'Vanilla+ASI': 0, 'MCP': 0, 'MCP+ASI': 0}
+        task_ids_by_condition = {'Vanilla': [], 'Vanilla+ASI': [], 'MCP': [], 'MCP+ASI': []}
         
         for task_id, metrics_file in cohort_files.items():
             with open(metrics_file, 'r') as f:
                 data = json.load(f)
                 
-            # Determine experimental condition
+            # Determine experimental condition (2x2 factorial design)
             config = data.get('configuration', {})
             mcp_enabled = config.get('mcp_enabled', False)
             asi_enabled = config.get('asi_enabled', False)
             
             if asi_enabled and mcp_enabled:
-                condition = 'ASI'  # MCP+ASI
-                target_dir = asi_dir
+                condition = 'MCP+ASI'
+                target_dir = mcp_asi_dir
             elif mcp_enabled and not asi_enabled:
-                condition = 'MCP'  # MCP only
+                condition = 'MCP'
                 target_dir = mcp_dir
+            elif asi_enabled and not mcp_enabled:
+                condition = 'Vanilla+ASI'
+                target_dir = vanilla_asi_dir
             else:
-                condition = 'Vanilla'  # No MCP, no ASI
+                condition = 'Vanilla'
                 target_dir = vanilla_dir
             
             # Copy file to appropriate subdirectory
@@ -463,7 +470,12 @@ def save_cohort():
             task_ids_by_condition[condition].append(f'webarena.{task_id}')
         
         # Also run analysis on the cohort data and save to each subdirectory
-        for condition, condition_dir in [('Vanilla', vanilla_dir), ('MCP', mcp_dir), ('ASI', asi_dir)]:
+        for condition, condition_dir in [
+            ('Vanilla', vanilla_dir), 
+            ('Vanilla+ASI', vanilla_asi_dir),
+            ('MCP', mcp_dir), 
+            ('MCP+ASI', mcp_asi_dir)
+        ]:
             if copied_stats[condition] > 0:
                 try:
                     # Create a temporary directory with just this condition's files for analysis
@@ -533,17 +545,28 @@ def list_cohorts():
         cohorts = []
         for cohort_dir in sorted(final_dir.iterdir()):
             if cohort_dir.is_dir() and cohort_dir.name.startswith('cohort_'):
-                # Check for new organized structure (Vanilla/MCP/ASI subdirs)
+                # Check for new organized structure (Vanilla/Vanilla+ASI/MCP/MCP+ASI subdirs)
                 vanilla_dir = cohort_dir / 'Vanilla'
+                vanilla_asi_dir = cohort_dir / 'Vanilla+ASI'
                 mcp_dir = cohort_dir / 'MCP'
-                asi_dir = cohort_dir / 'ASI'
+                mcp_asi_dir = cohort_dir / 'MCP+ASI'
+                asi_dir = cohort_dir / 'ASI'  # Legacy support
                 
-                if vanilla_dir.exists() or mcp_dir.exists() or asi_dir.exists():
+                if vanilla_dir.exists() or vanilla_asi_dir.exists() or mcp_dir.exists() or mcp_asi_dir.exists() or asi_dir.exists():
                     # New organized structure
                     condition_breakdown = {}
                     total_experiments = 0
                     
-                    for condition, cond_dir in [('Vanilla', vanilla_dir), ('MCP', mcp_dir), ('ASI', asi_dir)]:
+                    # Support both new 4-condition structure and legacy 3-condition
+                    condition_mapping = [
+                        ('Vanilla', vanilla_dir), 
+                        ('Vanilla+ASI', vanilla_asi_dir),
+                        ('MCP', mcp_dir), 
+                        ('MCP+ASI', mcp_asi_dir),
+                        ('ASI', asi_dir)  # Legacy support (will be mapped to MCP+ASI in display)
+                    ]
+                    
+                    for condition, cond_dir in condition_mapping:
                         if cond_dir.exists():
                             metrics_files = list(cond_dir.glob('*_research_metrics.json'))
                             count = len(metrics_files)
@@ -606,6 +629,41 @@ def list_cohorts():
         
         return jsonify({'cohorts': cohorts})
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/research-dashboard', methods=['GET'])
+def generate_research_dashboard():
+    """Generate and return the research dashboard HTML"""
+    try:
+        cohort_name = request.args.get('cohort')
+        
+        if cohort_name:
+            # Generate dashboard for specific cohort
+            cohort_path = Path(__file__).parent / 'results' / 'final' / cohort_name
+            if not cohort_path.exists():
+                return jsonify({'error': f'Cohort {cohort_name} not found'}), 404
+            
+            cmd = ['python3', 'research_dashboard.py', str(cohort_path)]
+            output_file = f'research_dashboard_{cohort_name}.html'
+        else:
+            # Generate dashboard for all experiments
+            cmd = ['python3', 'research_dashboard.py']
+            output_file = 'research_dashboard.html'
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=Path(__file__).parent)
+        
+        if result.returncode == 0:
+            # Read the generated HTML file
+            dashboard_path = Path(__file__).parent / output_file
+            if dashboard_path.exists():
+                with open(dashboard_path, 'r') as f:
+                    html_content = f.read()
+                return Response(html_content, mimetype='text/html')
+            else:
+                return jsonify({'error': 'Dashboard HTML file not found'}), 500
+        else:
+            return jsonify({'error': f'Dashboard generation failed: {result.stderr}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1193,11 +1251,13 @@ def run_batch_tasks():
             # Run task with or without ASI
             start_time = time.time()
             
-            # Determine experiment mode based on MCP and ASI settings
+            # Determine experiment mode based on MCP and ASI settings (2x2 factorial design)
             if use_asi and use_mcp:
-                experiment_mode = 'asi'  # MCP + ASI
+                experiment_mode = 'mcp_asi'  # MCP + ASI
             elif use_mcp and not use_asi:
                 experiment_mode = 'mcp'  # MCP only
+            elif use_asi and not use_mcp:
+                experiment_mode = 'vanilla_asi'  # Vanilla + ASI (no MCP tools)
             else:
                 experiment_mode = 'vanilla'  # No MCP, no ASI (true control)
             

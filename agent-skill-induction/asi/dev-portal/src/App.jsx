@@ -179,11 +179,19 @@ function App() {
               { id: 'executor', label: 'Executor', icon: '▶' },
               { id: 'taskrunner', label: 'Task Runner', icon: '🚀' },
               { id: 'skills', label: 'Skills', icon: '📚' },
-              { id: 'cohorts', label: 'Cohorts', icon: '📊' }
+              { id: 'cohorts', label: 'Cohorts', icon: '📊' },
+              { id: 'research', label: 'Research', icon: '📈' }
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  if (tab.id === 'research') {
+                    // Open research dashboard in new window
+                    window.open('http://localhost:5000/api/research-dashboard', '_blank')
+                  } else {
+                    setActiveTab(tab.id)
+                  }
+                }}
                 className={`px-4 py-3 text-sm font-medium transition-all duration-200 border-b-2 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 bg-blue-50/50'
@@ -192,6 +200,7 @@ function App() {
               >
                 <span className="mr-2">{tab.icon}</span>
                 {tab.label}
+                {tab.id === 'research' && <span className="ml-1 text-xs">↗</span>}
               </button>
             ))}
           </div>
@@ -2530,6 +2539,12 @@ function CohortsTab() {
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => window.open(`http://localhost:5000/api/research-dashboard?cohort=${cohort.name}`, '_blank')}
+                      className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      📊 Research Dashboard
+                    </button>
                     {((cohort.structure === 'organized' && cohort.has_overall_analysis) || 
                       (cohort.structure === 'legacy' && cohort.has_analysis)) && (
                       <button
@@ -2537,7 +2552,7 @@ function CohortsTab() {
                         disabled={loading}
                         className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-lg transition-colors text-sm font-medium"
                       >
-                        📈 Overall Analysis
+                        📈 Text Analysis
                       </button>
                     )}
                     <button

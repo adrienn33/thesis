@@ -9,6 +9,7 @@ def generate_research_metrics(
     website: str, 
     task_index: int = 1, 
     asi_enabled: bool = False, 
+    mcp_enabled: bool = None,
     skill_induction_attempted: bool = False,
     induced_skills_count: int = 0,
     induced_skills_names: list = None
@@ -20,6 +21,7 @@ def generate_research_metrics(
         website: Website name (e.g., "shopping")
         task_index: Index of this task in a batch run (1-indexed, default=1)
         asi_enabled: Whether ASI (Agent Skill Induction) was enabled for this run
+        mcp_enabled: Whether MCP was enabled for this run (None = auto-detect from config file)
         skill_induction_attempted: Whether skill induction subprocess was actually run for this task
         induced_skills_count: Number of skills induced in this run (0 if none)
         induced_skills_names: List of skill names induced in this run (empty list if none)
@@ -35,7 +37,11 @@ def generate_research_metrics(
     
     summary = json.load(open(summary_path, 'r'))
     
-    mcp_config_exists = os.path.exists(f"config_files/{task_id}-mcp-container.json")
+    # Determine MCP status: use explicit parameter if provided, otherwise auto-detect
+    if mcp_enabled is None:
+        mcp_config_exists = os.path.exists(f"config_files/{task_id}-mcp-container.json")
+    else:
+        mcp_config_exists = mcp_enabled
     
     mcp_connected = _check_mcp_connected(result_dir)
     mcp_calls = _check_mcp_calls(result_dir)
@@ -264,17 +270,17 @@ def _check_skill_induction(result_dir: str) -> bool:
 def _determine_configuration(mcp_enabled: bool, asi_enabled: bool) -> str:
     """Determine configuration name based on MCP and ASI status
     
-    Vanilla:  MCP -> Disabled, ASI -> Disabled
-    MCP:      MCP -> Enabled,  ASI -> Disabled
-    ASI:      MCP -> Disabled, ASI -> Enabled
-    MCP+ASI:  MCP -> Enabled,  ASI -> Enabled
+    Vanilla:      MCP -> Disabled, ASI -> Disabled
+    MCP:          MCP -> Enabled,  ASI -> Disabled  
+    Vanilla+ASI:  MCP -> Disabled, ASI -> Enabled
+    MCP+ASI:      MCP -> Enabled,  ASI -> Enabled
     """
     if mcp_enabled and asi_enabled:
         return "MCP+ASI"
     elif mcp_enabled and not asi_enabled:
         return "MCP"
     elif not mcp_enabled and asi_enabled:
-        return "ASI"
+        return "Vanilla+ASI"
     else:
         return "Vanilla"
 

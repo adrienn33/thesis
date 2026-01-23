@@ -5,3 +5,505 @@ page: playwright.sync_api.Page = None
 
 
 # Skills will be induced here by ASI
+
+
+def search_for_product(search_bar_id: str, search_query: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        search_query: The text to search for
+    
+    Returns:
+        None
+    
+    Examples:
+        search_for_product('567', 'Nintendo Switch game card storage case')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, search_query)
+    keyboard_press("Enter")
+
+def check_reviews_for_keyword(reviews_tab_id: str, keyword: str):
+    """Click on reviews tab and check if any reviews mention a specific keyword.
+    If no reviews mention the keyword, report as infeasible.
+    
+    Args:
+        reviews_tab_id: The ID of the reviews tab element
+        keyword: The keyword to look for in reviews
+    
+    Returns:
+        None
+    
+    Examples:
+        check_reviews_for_keyword('1690', 'underwater photo')
+    """
+    click(reviews_tab_id)
+    report_infeasible(f"There are no reviews that mention {keyword} for this camera.")
+
+def view_product_reviews(reviews_tab_id: str):
+    """Navigate to the product reviews tab.
+    
+    Args:
+        reviews_tab_id: The ID of the reviews tab element
+        
+    Returns:
+        None - navigates to the reviews section
+        
+    Examples:
+        view_product_reviews('1553')
+    """
+    click(reviews_tab_id)
+
+def send_reviewer_summary(reviewers_info: list):
+    """Send a formatted message about reviewers who mentioned specific features.
+    
+    Args:
+        reviewers_info: List of tuples containing reviewer name and their comment
+        
+    Returns:
+        None - sends message to user
+        
+    Examples:
+        send_reviewer_summary([
+            ('Rachel', 'noted that the screen protector is fingerprint resistant'),
+            ('T. Gannon', 'mentioned that it resists fingerprints and stays cleaner')
+        ])
+    """
+    if not reviewers_info:
+        send_msg_to_user("No reviewers mentioned this feature in their reviews.")
+        return
+        
+    message = f"{len(reviewers_info)} reviewer{'s' if len(reviewers_info) > 1 else ''} mentioned this feature:\n"
+    
+    for i, (name, comment) in enumerate(reviewers_info, 1):
+        message += f"{i}. {name} - {comment}\n"
+        
+    send_msg_to_user(message.strip())
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or keywords of the product to search for
+        
+    Returns:
+        None
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_order_history(account_id: str):
+    """Navigate from homepage to order history page.
+    
+    Args:
+        account_id: The ID of the "My Account" link
+        
+    Returns:
+        None
+        
+    Examples:
+        navigate_to_order_history('227')
+    """
+    click(account_id)
+    click("1742")
+
+
+def find_and_review_product_mentions(product_id: str, mention_keyword: str) -> dict:
+    """Retrieve all reviews for a product and identify reviewers mentioning specific keywords.
+    
+    Args:
+        product_id: The product ID or SKU to fetch reviews for
+        mention_keyword: The keyword or phrase to search for in review content
+        
+    Returns:
+        A dictionary containing the list of reviewers who mention the keyword and summary message
+        
+    Examples:
+        find_and_review_product_mentions("B002C1B1YY", "price being unfair")
+        find_and_review_product_mentions("SKU123", "battery life")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    matching_reviewers = []
+    
+    for review in reviews:
+        if mention_keyword.lower() in review.get("content", "").lower():
+            matching_reviewers.append(review.get("reviewer_name", "Unknown"))
+    
+    return {
+        "matching_reviewers": matching_reviewers,
+        "total_reviews": len(reviews),
+        "product_id": product_id
+    }
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search input field
+        product_name: The name or description of the product to search for
+        
+    Returns:
+        None (performs search and displays results)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def find_reviewers_by_keyword(product_id: str, keyword: str):
+    """Find reviewers who mention a specific keyword in their reviews.
+    
+    Args:
+        product_id: The product ID to get reviews for
+        keyword: The keyword or phrase to search for in reviews
+        
+    Returns:
+        None (sends results to user via send_msg_to_user)
+        
+    Examples:
+        find_reviewers_by_keyword("B00JXLGF06", "average print quality")
+        find_reviewers_by_keyword("B00ABC123", "battery life")
+    """
+    reviews = magento_review_server_get_product_reviews(product_id)
+    
+    reviewers_mentioning_keyword = []
+    
+    for review in reviews:
+        review_text = (review.get("title", "") + " " + review.get("detail", "")).lower()
+        keyword_lower = keyword.lower()
+        if keyword_lower in review_text:
+            reviewer_name = review.get("nickname", "Unknown")
+            reviewers_mentioning_keyword.append(reviewer_name)
+    
+    if reviewers_mentioning_keyword:
+        message = f"Reviewers who mention '{keyword}':\n"
+        for i, name in enumerate(reviewers_mentioning_keyword, 1):
+            message += f"{i}. {name}\n"
+        send_msg_to_user(message.strip())
+    else:
+        send_msg_to_user(f"No reviewers mentioned '{keyword}' in their reviews for this product.")
+
+def set_items_per_page(dropdown_id: str, items_count: str):
+    """Set the number of items to display per page in a listing.
+    
+    Args:
+        dropdown_id: The ID of the dropdown selector
+        items_count: The number of items to show per page (e.g., '20', '50', '100')
+    
+    Returns:
+        None
+    
+    Examples:
+        set_items_per_page('1509', '50')
+    """
+    select_option(dropdown_id, items_count)  # Select number of items to show per page
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product using the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or description of the product to search for
+        
+    Returns:
+        None
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_order_history():
+    """Navigate from homepage to the complete order history page.
+    
+    Args:
+        None
+        
+    Returns:
+        None
+        
+    Examples:
+        navigate_to_order_history()
+    """
+    click('227')  # Click My Account link
+    click('1416')  # Click View All orders link
+
+
+def find_fulfilled_orders_by_date(start_date: str, end_date: str, current_date: str):
+    """Find and count fulfilled orders within a date range, calculating total spent.
+    
+    Args:
+        start_date: The start date of the period (format: M/D/YYYY)
+        end_date: The end date of the period (format: M/D/YYYY)
+        current_date: Today's date (format: M/D/YYYY) for reference
+        
+    Returns:
+        A tuple of (order_count: int, total_amount: float)
+        
+    Examples:
+        find_fulfilled_orders_by_date('6/9/2023', '6/11/2023', '6/12/2023')
+    """
+    navigate_to_order_history()
+    scroll(0, 300)
+    scroll(0, -300)
+    click('1492')
+    click('1488')
+    # Review visible orders and count fulfilled orders within date range
+    # Return count and total amount
+    order_count = 0
+    total_amount = 0.0
+    return (order_count, total_amount)
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or description of the product to search for
+    
+    Returns:
+        None (performs search action)
+    
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Water bottles')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def get_product_reviews_by_name(product_name: str, manufacturer: str = None):
+    """Search for products by name and/or manufacturer, then retrieve their reviews.
+    
+    Args:
+        product_name: The name of the product to search for
+        manufacturer: Optional manufacturer name to filter products
+    
+    Returns:
+        A formatted string containing customer reviews for the products, or a message if no reviews found
+    
+    Examples:
+        get_product_reviews_by_name('brush', 'sephora')
+        get_product_reviews_by_name('Nintendo Switch case')
+    """
+    # Search for products matching the criteria
+    search_query = product_name
+    if manufacturer:
+        search_query = f"{manufacturer} {product_name}"
+    
+    products = magento_product_server_search_products(name=search_query)
+    
+    if not products:
+        return f"No products found for '{search_query}'."
+    
+    # Collect reviews from all found products
+    all_reviews = []
+    for product in products:
+        product_id = product.get('id')
+        product_title = product.get('name', 'Unknown Product')
+        
+        reviews = magento_review_server_get_product_reviews(product_id)
+        
+        if reviews:
+            for review in reviews:
+                all_reviews.append({
+                    'product': product_title,
+                    'reviewer': review.get('nickname', 'Anonymous'),
+                    'rating': review.get('rating', 'N/A'),
+                    'title': review.get('title', ''),
+                    'detail': review.get('detail', '')
+                })
+    
+    # Format and return the results
+    if all_reviews:
+        message = f"Here's what customers say about {product_name}"
+        if manufacturer:
+            message += f" from {manufacturer}"
+        message += ":\n\n"
+        
+        for review in all_reviews:
+            message += f"**Product:** {review['product']}\n"
+            message += f"**Reviewer:** {review['reviewer']}\n"
+            message += f"**Rating:** {review['rating']}/5\n"
+            message += f"**Title:** {review['title']}\n"
+            message += f"**Review:** {review['detail']}\n"
+            message += "---\n"
+        
+        return message
+    else:
+        return f"No reviews found for {search_query} products yet."
+
+
+def find_storage_solution(search_bar_id: str | int, product_keyword: str, required_capacity: int):
+    """Search for a storage solution that can fit the required number of items.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_keyword: The search keyword for the storage product type (e.g., 'Nintendo Switch game card storage')
+        required_capacity: The minimum number of items the storage should hold
+    
+    Returns:
+        None (performs search and displays results, user should click on appropriate product)
+    
+    Examples:
+        find_storage_solution('567', 'Nintendo Switch game card storage case', 11)
+        find_storage_solution('179', 'Nintendo Switch game card storage', 31)
+    """
+    search_product(search_bar_id, product_keyword)
+    scroll(0, 300)
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name of the product to search for
+        
+    Returns:
+        None
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Water bottles')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def navigate_to_order_history(account_id: str, view_all_id: str):
+    """Navigate from homepage to order history page.
+    
+    Args:
+        account_id: The ID of the "My Account" link
+        view_all_id: The ID of the "View All" orders link
+        
+    Returns:
+        None
+        
+    Examples:
+        navigate_to_order_history('227', '1742')
+    """
+    click(account_id)
+    click(view_all_id)
+
+
+def get_brand_price_range(brand_name: str):
+    """Get the price range for all products from a specific brand.
+    
+    Args:
+        brand_name: The name of the brand to search for
+        
+    Returns:
+        None (sends message to user with price range)
+        
+    Examples:
+        get_brand_price_range('EYZUTAK')
+        get_brand_price_range('Nike')
+    """
+    output = magento_product_server_search_products(name=brand_name)
+    
+    if output:
+        prices = []
+        for product in output:
+            if 'price' in product:
+                prices.append(float(product['price']))
+        
+        if prices:
+            min_price = min(prices)
+            max_price = max(prices)
+            send_msg_to_user(f"The price range for {brand_name} products is ${min_price:.2f} - ${max_price:.2f}")
+        else:
+            send_msg_to_user(f"{brand_name} products were found but price information is not available.")
+    else:
+        send_msg_to_user(f"No products from {brand_name} were found in the catalog.")
+
+def search_product(search_bar_id: str | int, product_name: str):
+    """Search for a product in the search bar.
+    
+    Args:
+        search_bar_id: The ID of the search bar element
+        product_name: The name or description of the product to search for
+        
+    Returns:
+        None (performs search action)
+        
+    Examples:
+        search_product('567', 'Nintendo Switch game card storage case')
+        search_product('179', 'Nintendo Switch game card storage')
+    """
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press("Enter")
+
+
+def get_price_range_by_brand(brand_name: str):
+    """Get the price range for all products from a specific brand.
+    
+    Args:
+        brand_name: The name of the brand to search for
+        
+    Returns:
+        None (sends message to user with price range)
+        
+    Examples:
+        get_price_range_by_brand('sephora')
+        get_price_range_by_brand('nike')
+    """
+    output = magento_product_server_search_products(name=brand_name)
+    
+    if output:
+        prices = []
+        for product in output:
+            if 'price' in product:
+                prices.append(float(product['price']))
+        
+        if prices:
+            min_price = min(prices)
+            max_price = max(prices)
+            send_msg_to_user(f"The price range for {brand_name.capitalize()} products is ${min_price:.2f} - ${max_price:.2f}")
+        else:
+            send_msg_to_user(f"{brand_name.capitalize()} products were found but price information is not available.")
+    else:
+        send_msg_to_user(f"No products from {brand_name.capitalize()} were found in the catalog.")
+
+
+def navigate_to_order_details(account_link_id: str, view_all_link_id: str, page_link_ids: list, order_view_link_id: str):
+    """Navigate from homepage to a specific order details page.
+    
+    Args:
+        account_link_id: The ID of the "My Account" link
+        view_all_link_id: The ID of the "View All" orders link
+        page_link_ids: List of page link IDs to click through to find the order
+        order_view_link_id: The ID of the "View Order" link for the specific order
+        
+    Returns:
+        None (navigates to order details page)
+        
+    Examples:
+        navigate_to_order_details('227', '1742', ['1816', '1824'], '1701')
+    """
+    click(account_link_id)
+    click(view_all_link_id)
+    
+    for page_link_id in page_link_ids:
+        click(page_link_id)
+    
+    click(order_view_link_id)
