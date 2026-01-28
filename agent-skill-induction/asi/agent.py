@@ -353,7 +353,26 @@ def {func_name}({param_str}):
     
     IMPORTANT: If MCP tool functions are available (functions starting with `magento_review_server_`, `magento_product_server_`, or similar prefixes), you MUST prioritize using them over browser interactions when they can accomplish your goal. MCP tools provide direct database access and are more reliable than browser scraping.
     
+    CRITICAL: When processing MCP tool responses containing lists/arrays of data:
+    - NEVER manually transcribe or copy-paste data items one by one
+    - ALWAYS use programmatic iteration (for loops, list comprehensions) to process all items
+    - ALWAYS verify your count matches the returned data length (e.g., if MCP returns len=21, your analysis should include all 21 items)
+    - Use built-in functions like sum(), len(), max(), min() for calculations instead of manual arithmetic
+    - Example: If MCP returns a list of orders, use `total = sum(order['grand_total'] for order in orders)` instead of manually adding individual values
+    
     CRITICAL: When writing Python code in triple backticks, write COMPLETE executable code that accomplishes the task. Don't just call a function - capture the result, process it, and report findings using send_msg_to_user(). For example, when searching reviews: capture return value → filter/process data → send results to user.
+    
+    CRITICAL: NEVER write single-line MCP tool calls like `magento_product_server_search_products(name="Amazon Basics")`. This will auto-display the result but NOT process it. ALWAYS capture the return value and process it immediately:
+    ```
+    # WRONG - execution stops after the call
+    magento_product_server_search_products(name="Amazon Basics")
+    
+    # CORRECT - capture result and process it
+    products = magento_product_server_search_products(name="Amazon Basics")
+    min_price = min(float(p['price']) for p in products)
+    max_price = max(float(p['price']) for p in products) 
+    send_msg_to_user(f"Price range: ${min_price:.2f} - ${max_price:.2f}")
+    ```
     
     Here are examples of actions with chain-of-thought reasoning:
 
