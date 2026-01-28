@@ -96,18 +96,51 @@ def induce_actions() -> list[str] | None:
     print(f"[INDUCE] Generated test query ({len(test_query)} chars)")
     with open(args.test_query_path, 'w') as fw: fw.write(test_query)
 
-    # Extract existing function signatures to show the model
+    # Extract existing function names and signatures to show the model
     existing_code = open(args.write_action_path).read()
     existing_signatures = []
+    existing_names = []
+    
     for line in existing_code.split('\n'):
         if line.strip().startswith('def '):
             existing_signatures.append(line.strip())
+            # Extract just the function name
+            import re
+            name_match = re.search(r'def\s+(\w+)\s*\(', line.strip())
+            if name_match:
+                existing_names.append(name_match.group(1))
+    
+    # Remove duplicates from names list
+    unique_existing_names = sorted(list(set(existing_names)))
+    
     existing_funcs_summary = '\n'.join(existing_signatures) if existing_signatures else "None"
+    existing_names_list = ', '.join(unique_existing_names) if unique_existing_names else "None"
     
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
     messages += [{"role": "user", "content": open(args.instruction_path).read()}]
     messages += [{"role": "user", "content": open(args.few_shot_path).read()}]
-    messages += [{"role": "user", "content": f"## Existing Function Signatures (DO NOT create duplicates of these)\n```python\n{existing_funcs_summary}\n```"}]
+    messages += [{"role": "user", "content": f"""## ⚠️ CRITICAL: EXISTING SKILLS - DO NOT DUPLICATE
+
+The following skills have ALREADY been learned and implemented. You MUST NOT create new functions with these names or similar functionality.
+
+**EXISTING SKILL NAMES (FORBIDDEN TO RECREATE):**
+{existing_names_list}
+
+**Existing Function Signatures:**
+```python
+{existing_funcs_summary}
+```
+
+🚨 **IMPORTANT RULES:**
+1. You MUST ONLY propose NEW skills that don't already exist
+2. Check the existing names list above - if a skill name already exists, DO NOT recreate it
+3. Look for similar functionality in existing skills - don't duplicate similar behavior with different names
+4. Focus on identifying genuinely NOVEL patterns that aren't covered by existing skills
+
+✅ **WHAT TO DO:**
+- Only propose skills that solve completely new problems not addressed by existing skills
+- Use descriptive names that are clearly different from existing ones
+- If you cannot identify novel skills, it's better to propose NO new skills than duplicate existing ones"""}]
     messages += [{"role": "user", "content": test_query + '\n\n## Reusable Functions'}]
 
     all_responses = []
