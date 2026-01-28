@@ -108,22 +108,23 @@ def analyze_experiments(experiments):
         total_times = [exp['task_execution']['elapsed_time'] for exp in group_exps]
         
         # Skill metrics (for ASI experiments)
-        skill_reuse_rates = []
+        runs_with_reuse = 0
         skills_reused = []
         skills_induced = []
         
         for exp in group_exps:
-            if exp.get('skills_reused_count', 0) > 0 or len(exp.get('available_skills', [])) > 0:
-                total_available = len(exp.get('available_skills', []))
-                reused_count = exp.get('skills_reused_count', 0)
-                if total_available > 0:
-                    skill_reuse_rates.append(reused_count / total_available)
+            reused_count = exp.get('skills_reused_count', 0)
+            if reused_count > 0:
+                runs_with_reuse += 1
                 
-            skills_reused.append(exp.get('skills_reused_count', 0))
+            skills_reused.append(reused_count)
             skills_induced.append(exp.get('skills_induced_count', 0))
         
         # Token usage
         token_usage = [exp.get('token_usage', {}).get('total_input_tokens', 0) for exp in group_exps]
+        
+        # Calculate percentage of runs that had any skill reuse
+        skill_reuse_run_pct = (runs_with_reuse / len(group_exps)) if len(group_exps) > 0 else 0
         
         results[group_name] = {
             'count': len(group_exps),
@@ -132,7 +133,7 @@ def analyze_experiments(experiments):
             'std_steps': statistics.stdev(steps) if len(steps) > 1 else 0,
             'avg_agent_time': statistics.mean(agent_times) if agent_times else 0,
             'avg_total_time': statistics.mean(total_times) if total_times else 0,
-            'avg_skill_reuse_rate': statistics.mean(skill_reuse_rates) if skill_reuse_rates else 0,
+            'skill_reuse_run_pct': skill_reuse_run_pct,
             'avg_skills_reused': statistics.mean(skills_reused) if skills_reused else 0,
             'avg_skills_induced': statistics.mean(skills_induced) if skills_induced else 0,
             'avg_tokens': statistics.mean(token_usage) if token_usage else 0
@@ -168,7 +169,7 @@ def calculate_statistical_significance(results):
         comparisons['VanillaASI_vs_Vanilla'] = {
             'success_lift_pct': success_lift,
             'step_efficiency_pct': step_efficiency,
-            'skill_reuse_rate': vanilla_asi['avg_skill_reuse_rate'],
+            'skill_reuse_rate': vanilla_asi['skill_reuse_run_pct'],
             'sample_size_adequate': vanilla_asi['count'] >= 10 and vanilla['count'] >= 10
         }
     
@@ -192,7 +193,7 @@ def calculate_statistical_significance(results):
         comparisons['MCPASI_vs_Vanilla'] = {
             'success_lift_pct': success_lift,
             'step_efficiency_pct': step_efficiency,
-            'skill_reuse_rate': mcp_asi['avg_skill_reuse_rate'],
+            'skill_reuse_rate': mcp_asi['skill_reuse_run_pct'],
             'sample_size_adequate': mcp_asi['count'] >= 10 and vanilla['count'] >= 10
         }
     
@@ -203,7 +204,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title_suffix = f" - {cohort_name}" if cohort_name else ""
-    data_source = f"Cohort: {cohort_name}" if cohort_name else "All Experiments"
+    data_source = f"{cohort_name}" if cohort_name else "All Experiments"
     
     # Determine research status
     def get_status_badge(comparison_key, metric):
@@ -439,7 +440,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     vanilla_asi_success = vanilla_asi_data['success_rate']*100 if vanilla_asi_data else 0
     vanilla_asi_count = vanilla_asi_data['count'] if vanilla_asi_data else 0
     vanilla_asi_steps = vanilla_asi_data['avg_steps'] if vanilla_asi_data else 0
-    vanilla_asi_reuse = vanilla_asi_data['avg_skill_reuse_rate']*100 if vanilla_asi_data else 0
+    vanilla_asi_reuse = vanilla_asi_data['skill_reuse_run_pct']*100 if vanilla_asi_data else 0
     vanilla_asi_class = 'danger' if not vanilla_asi_data else ('success' if vanilla_asi_data['success_rate'] > 0.2 else 'warning')
     
     html += f"""
@@ -457,7 +458,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     mcp_asi_success = mcp_asi_data['success_rate']*100 if mcp_asi_data else 0
     mcp_asi_count = mcp_asi_data['count'] if mcp_asi_data else 0
     mcp_asi_steps = mcp_asi_data['avg_steps'] if mcp_asi_data else 0
-    mcp_asi_reuse = mcp_asi_data['avg_skill_reuse_rate']*100 if mcp_asi_data else 0
+    mcp_asi_reuse = mcp_asi_data['skill_reuse_run_pct']*100 if mcp_asi_data else 0
     mcp_asi_class = 'danger' if not mcp_asi_data else ('success' if mcp_asi_data['success_rate'] > 0.2 else 'warning')
     
     html += f"""
@@ -519,14 +520,22 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     for config_name in ['Vanilla', 'Vanilla+ASI', 'MCP', 'MCP+ASI']:
         data = results.get(config_name)
         if data:
+            # Use dashes for non-ASI conditions since they don't do skill induction/reuse
+            if config_name in ['Vanilla', 'MCP']:
+                skills_reused_display = "—"
+                skills_induced_display = "—"
+            else:
+                skills_reused_display = f"{data['avg_skills_reused']:.1f}"
+                skills_induced_display = f"{data['avg_skills_induced']:.1f}"
+            
             html += f"""
                 <tr>
                     <td><strong>{config_name}</strong> (n={data['count']})</td>
                     <td>{data['success_rate']*100:.1f}%</td>
                     <td>{data['avg_steps']:.1f} ± {data['std_steps']:.1f}</td>
                     <td>{data['avg_agent_time']:.1f}s</td>
-                    <td>{data['avg_skills_reused']:.1f}</td>
-                    <td>{data['avg_skills_induced']:.1f}</td>
+                    <td>{skills_reused_display}</td>
+                    <td>{skills_induced_display}</td>
                     <td>{data['avg_tokens']:,.0f}</td>
                 </tr>"""
         else:
@@ -555,7 +564,6 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
                 <div>
                     Success: {comp_data.get('success_lift_pct', 0):+.1f}% | 
                     Efficiency: {comp_data.get('step_efficiency_pct', 0):+.1f}%
-                    {f" | Skill Induction: {comp_data.get('skill_induction_effect', 0):.1f}" if 'skill_induction_effect' in comp_data else ""}
                 </div>
             </div>"""
         

@@ -157,13 +157,13 @@
 </head>
 <body>
     <div class="container">
-        <h1>Agent Skill Induction Research Dashboard - cohort_1</h1>
+        <h1>Agent Skill Induction Research Dashboard - cohort_2</h1>
         <div class="subtitle">WebArena E-commerce Task Performance Analysis</div>
         
         <div class="meta-info">
-            <div><strong>Analysis Date:</strong> 2026-01-27 21:42:15</div>
-            <div><strong>Data Source:</strong> cohort_1</div>
-            <div><strong>Total Experiments:</strong> 80</div>
+            <div><strong>Analysis Date:</strong> 2026-01-27 21:42:17</div>
+            <div><strong>Data Source:</strong> cohort_2</div>
+            <div><strong>Total Experiments:</strong> 20</div>
             <div><strong>Task Domain:</strong> Shopping (Magento)</div>
         </div>
 
@@ -171,34 +171,34 @@
         <div class="kpi-grid">
             <div class="kpi-card vanilla">
                 <h3>Vanilla (Control)</h3>
-                <div class="kpi-value success">45.0%</div>
+                <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 20 | Avg Steps: 5.7</small>
+                    <small>n = 0 | Avg Steps: 0.0</small>
                 </div>
             </div>
             <div class="kpi-card mcp">
                 <h3>MCP Tools Only</h3>
-                <div class="kpi-value success">55.0%</div>
+                <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 20 | Avg Steps: 3.5</small>
+                    <small>n = 0 | Avg Steps: 0.0</small>
                 </div>
             </div>
             <div class="kpi-card vanilla-asi">
                 <h3>Vanilla + ASI</h3>
-                <div class="kpi-value success">60.0%</div>
+                <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 20 | Avg Steps: 6.0 | Skill Reuse: 0.0%</small>
+                    <small>n = 0 | Avg Steps: 0.0 | Skill Reuse: 0.0%</small>
                 </div>
             </div>
             <div class="kpi-card mcp-asi">
                 <h3>MCP + ASI</h3>
-                <div class="kpi-value success">55.0%</div>
+                <div class="kpi-value success">45.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 20 | Avg Steps: 2.6 | Skill Reuse: 20.0%</small>
+                    <small>n = 20 | Avg Steps: 2.3 | Skill Reuse: 10.0%</small>
                 </div>
             </div>
         </div>
@@ -209,27 +209,27 @@
             
             <div class="metric-row">
                 <div><strong>H1: MCP tooling improves task success rate</strong></div>
-                <div><span class="badge positive">Significant Improvement</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
             
             <div class="metric-row">
                 <div><strong>H2: ASI improves success rate (Vanilla baseline)</strong></div>
-                <div><span class="badge positive">Significant Improvement</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
             
             <div class="metric-row">
                 <div><strong>H3: ASI improves success rate (MCP baseline)</strong></div>
-                <div><span class="badge negative">No Improvement</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
             
             <div class="metric-row">
                 <div><strong>H4: Full system (MCP+ASI) outperforms Vanilla</strong></div>
-                <div><span class="badge positive">Significant Improvement</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
             
             <div class="metric-row">
                 <div><strong>H5: ASI demonstrates skill reuse capabilities</strong></div>
-                <div><span class="badge negative">Limited Skill Reuse</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
         </div>
 
@@ -248,79 +248,34 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Vanilla</strong> (n=20)</td>
-                    <td>45.0%</td>
-                    <td>5.7 ± 3.0</td>
-                    <td>18.2s</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>365,022</td>
+                    <td><strong>Vanilla</strong></td>
+                    <td colspan="6" style="text-align: center; color: #6c757d;">No experiments available</td>
                 </tr>
                 <tr>
-                    <td><strong>Vanilla+ASI</strong> (n=20)</td>
-                    <td>60.0%</td>
-                    <td>6.0 ± 2.7</td>
-                    <td>19.0s</td>
-                    <td>0.0</td>
-                    <td>0.5</td>
-                    <td>377,418</td>
+                    <td><strong>Vanilla+ASI</strong></td>
+                    <td colspan="6" style="text-align: center; color: #6c757d;">No experiments available</td>
                 </tr>
                 <tr>
-                    <td><strong>MCP</strong> (n=20)</td>
-                    <td>55.0%</td>
-                    <td>3.5 ± 2.9</td>
-                    <td>10.5s</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>222,316</td>
+                    <td><strong>MCP</strong></td>
+                    <td colspan="6" style="text-align: center; color: #6c757d;">No experiments available</td>
                 </tr>
                 <tr>
                     <td><strong>MCP+ASI</strong> (n=20)</td>
-                    <td>55.0%</td>
-                    <td>2.6 ± 2.7</td>
-                    <td>8.5s</td>
-                    <td>0.5</td>
-                    <td>0.6</td>
-                    <td>162,685</td>
+                    <td>45.0%</td>
+                    <td>2.3 ± 2.5</td>
+                    <td>7.8s</td>
+                    <td>0.1</td>
+                    <td>0.3</td>
+                    <td>143,707</td>
                 </tr>
             </tbody>
         </table>
 
         <!-- Effect Size Analysis -->
-        <div class="hypothesis-section">
-            <h3>Effect Size Analysis</h3>
-            <div class="metric-row">
-                <div><strong>MCP vs Vanilla</strong></div>
-                <div>
-                    Success: +22.2% | 
-                    Efficiency: +38.6%
-                </div>
-            </div>
-            <div class="metric-row">
-                <div><strong>VanillaASI vs Vanilla</strong></div>
-                <div>
-                    Success: +33.3% | 
-                    Efficiency: -4.4%
-                </div>
-            </div>
-            <div class="metric-row">
-                <div><strong>MCPASI vs MCP</strong></div>
-                <div>
-                    Success: +0.0% | 
-                    Efficiency: +25.7%
-                </div>
-            </div>
-            <div class="metric-row">
-                <div><strong>MCPASI vs Vanilla</strong></div>
-                <div>
-                    Success: +22.2% | 
-                    Efficiency: +54.4%
-                </div>
-            </div></div>
         <div class="footnote">
             <p><strong>Methodology:</strong> Analysis based on WebArena shopping task experiments. Success rate = tasks achieving reward ≥ 1.0. 
             Effect sizes calculated as percentage improvement over baseline. Sample size adequacy threshold = 10 experiments per condition.</p>
-            <p><strong>Generated:</strong> 2026-01-27 21:42:15 | <strong>Data Source:</strong> ASI Research Metrics v1.0</p>
+            <p><strong>Generated:</strong> 2026-01-27 21:42:17 | <strong>Data Source:</strong> ASI Research Metrics v1.0</p>
         </div>
     </div>
 </body>
