@@ -156,11 +156,11 @@ class MagentoWishlistServer(MCPServer):
         """Get database connection"""
         return await aiomysql.connect(**self.db_config)
     
-    async def get_wishlist(self, customer_email: str) -> Dict:
+    async def get_wishlist(self, customer_email: str = "emma.lopez@gmail.com") -> Dict:
         """View all items in the customer's wishlist.
         
         Args:
-            customer_email: Customer email address
+            customer_email: Customer email address (defaults to Emma Lopez)
             
         Returns:
             Wishlist information with items and product details
@@ -266,11 +266,11 @@ class MagentoWishlistServer(MCPServer):
             logger.error(f"Error getting wishlist: {e}")
             return {"error": str(e)}
     
-    async def add_to_wishlist(self, customer_email: str, product_id: str, qty: str = "1", description: str = "") -> Dict:
+    async def add_to_wishlist(self, product_id: str, customer_email: str = "emma.lopez@gmail.com", qty: str = "1", description: str = "") -> Dict:
         """Add a product to the customer's wishlist.
         
         Args:
-            customer_email: Customer email address
+            customer_email: Customer email address (defaults to Emma Lopez)
             product_id: Product entity ID or SKU
             qty: Quantity (default 1)
             description: Optional description/note for the wishlist item
@@ -423,11 +423,11 @@ class MagentoWishlistServer(MCPServer):
             logger.error(f"Error adding to wishlist: {e}")
             return {"error": str(e)}
     
-    async def remove_from_wishlist(self, customer_email: str, wishlist_item_id: str) -> Dict:
+    async def remove_from_wishlist(self, wishlist_item_id: str, customer_email: str = "emma.lopez@gmail.com") -> Dict:
         """Remove a specific item from the customer's wishlist.
         
         Args:
-            customer_email: Customer email address
+            customer_email: Customer email address (defaults to Emma Lopez)
             wishlist_item_id: Wishlist item ID (from get_wishlist response)
             
         Returns:

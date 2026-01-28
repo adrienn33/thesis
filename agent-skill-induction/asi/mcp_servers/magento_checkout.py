@@ -218,9 +218,12 @@ class MagentoCheckoutServer(MCPServer):
                     AND ssa.address_type = 'shipping'
             """
             
-            if customer_email:
-                conditions.append("so.customer_email = %s")
-                params.append(customer_email)
+            # Default to Emma Lopez (WebArena test user) if no customer email specified
+            if customer_email is None:
+                customer_email = "emma.lopez@gmail.com"
+            
+            conditions.append("so.customer_email = %s")
+            params.append(customer_email)
             
             if status:
                 conditions.append("so.status = %s")
