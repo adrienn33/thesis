@@ -225,23 +225,24 @@ def write_actions(response: str) -> tuple[str, list[str]]:
     
     for a in actions:
         if ("def " in a) and count_function_calls(a, 1):
-            a_names = get_function_names(a, existing_action_names)
-            if len(a_names) > 0:
-                # Check if any of these names are already in our new_actions list (duplicates within response)
-                already_added = [n for n in a_names if n in action_names]
-                if already_added:
-                    duplicates_found.extend(already_added)
-                    print(f"⚠️  DUPLICATE DETECTED in response: {already_added} - Skipping")
-                    continue
+            all_names_in_action = get_function_names(a, [])
+            
+            existing_conflicts = [name for name in all_names_in_action if name in existing_action_names]
+            if existing_conflicts:
+                duplicates_found.extend(existing_conflicts)
+                print(f"BLOCKED: Function(s) {existing_conflicts} already exist in file - Rejecting entire action")
+                print(f"   Action was: {a.split('def ')[1].split('(')[0] if 'def ' in a else 'unknown'}")
+                continue
+            
+            within_response_conflicts = [name for name in all_names_in_action if name in action_names]  
+            if within_response_conflicts:
+                duplicates_found.extend(within_response_conflicts)
+                print(f"BLOCKED: Function(s) {within_response_conflicts} already proposed in this response - Rejecting")
+                continue
                 
-                action_names.extend(a_names)
-                new_actions.append(a)
-            else:
-                # These function names already exist in the file
-                existing_in_file = get_function_names(a, [])
-                if existing_in_file:
-                    duplicates_found.extend(existing_in_file)
-                    print(f"⚠️  DUPLICATE DETECTED in file: {existing_in_file} - Skipping")
+            action_names.extend(all_names_in_action)
+            new_actions.append(a)
+            print(f"ACCEPTED: New skill(s) {all_names_in_action}")
 
     if duplicates_found:
         print(f"\n❌ REJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
