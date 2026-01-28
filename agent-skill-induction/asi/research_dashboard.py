@@ -409,7 +409,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     
     html += f"""
             <div class="kpi-card vanilla">
-                <h3>🎯 Vanilla (Control)</h3>
+                <h3>Vanilla (Control)</h3>
                 <div class="kpi-value {vanilla_class}">{vanilla_success:.1f}%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
@@ -426,7 +426,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     
     html += f"""
             <div class="kpi-card mcp">
-                <h3>🔧 MCP Tools Only</h3>
+                <h3>MCP Tools Only</h3>
                 <div class="kpi-value {mcp_class}">{mcp_success:.1f}%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
@@ -438,16 +438,17 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     vanilla_asi_data = results.get('Vanilla+ASI')
     vanilla_asi_success = vanilla_asi_data['success_rate']*100 if vanilla_asi_data else 0
     vanilla_asi_count = vanilla_asi_data['count'] if vanilla_asi_data else 0
+    vanilla_asi_steps = vanilla_asi_data['avg_steps'] if vanilla_asi_data else 0
     vanilla_asi_reuse = vanilla_asi_data['avg_skill_reuse_rate']*100 if vanilla_asi_data else 0
     vanilla_asi_class = 'danger' if not vanilla_asi_data else ('success' if vanilla_asi_data['success_rate'] > 0.2 else 'warning')
     
     html += f"""
             <div class="kpi-card vanilla-asi">
-                <h3>🧠 Vanilla + ASI</h3>
+                <h3>Vanilla + ASI</h3>
                 <div class="kpi-value {vanilla_asi_class}">{vanilla_asi_success:.1f}%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = {vanilla_asi_count} | Skill Reuse: {vanilla_asi_reuse:.1f}%</small>
+                    <small>n = {vanilla_asi_count} | Avg Steps: {vanilla_asi_steps:.1f} | Skill Reuse: {vanilla_asi_reuse:.1f}%</small>
                 </div>
             </div>"""
     
@@ -455,23 +456,24 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     mcp_asi_data = results.get('MCP+ASI')
     mcp_asi_success = mcp_asi_data['success_rate']*100 if mcp_asi_data else 0
     mcp_asi_count = mcp_asi_data['count'] if mcp_asi_data else 0
+    mcp_asi_steps = mcp_asi_data['avg_steps'] if mcp_asi_data else 0
     mcp_asi_reuse = mcp_asi_data['avg_skill_reuse_rate']*100 if mcp_asi_data else 0
     mcp_asi_class = 'danger' if not mcp_asi_data else ('success' if mcp_asi_data['success_rate'] > 0.2 else 'warning')
     
     html += f"""
             <div class="kpi-card mcp-asi">
-                <h3>🚀 MCP + ASI</h3>
+                <h3>MCP + ASI</h3>
                 <div class="kpi-value {mcp_asi_class}">{mcp_asi_success:.1f}%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = {mcp_asi_count} | Skill Reuse: {mcp_asi_reuse:.1f}%</small>
+                    <small>n = {mcp_asi_count} | Avg Steps: {mcp_asi_steps:.1f} | Skill Reuse: {mcp_asi_reuse:.1f}%</small>
                 </div>
             </div>
         </div>
 
         <!-- Research Hypotheses Analysis -->
         <div class="hypothesis-section">
-            <h3>📊 Research Hypothesis Validation</h3>
+            <h3>Research Hypothesis Validation</h3>
             
             <div class="metric-row">
                 <div><strong>H1: MCP tooling improves task success rate</strong></div>
@@ -543,7 +545,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
     if comparisons:
         html += """
         <div class="hypothesis-section">
-            <h3>📈 Effect Size Analysis</h3>"""
+            <h3>Effect Size Analysis</h3>"""
         
         for comp_name, comp_data in comparisons.items():
             friendly_name = comp_name.replace('_vs_', ' vs ').replace('_', ' ')

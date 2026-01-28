@@ -550,9 +550,8 @@ def list_cohorts():
                 vanilla_asi_dir = cohort_dir / 'Vanilla+ASI'
                 mcp_dir = cohort_dir / 'MCP'
                 mcp_asi_dir = cohort_dir / 'MCP+ASI'
-                asi_dir = cohort_dir / 'ASI'  # Legacy support
                 
-                if vanilla_dir.exists() or vanilla_asi_dir.exists() or mcp_dir.exists() or mcp_asi_dir.exists() or asi_dir.exists():
+                if vanilla_dir.exists() or vanilla_asi_dir.exists() or mcp_dir.exists() or mcp_asi_dir.exists():
                     # New organized structure
                     condition_breakdown = {}
                     total_experiments = 0
@@ -562,8 +561,7 @@ def list_cohorts():
                         ('Vanilla', vanilla_dir), 
                         ('Vanilla+ASI', vanilla_asi_dir),
                         ('MCP', mcp_dir), 
-                        ('MCP+ASI', mcp_asi_dir),
-                        ('ASI', asi_dir)  # Legacy support (will be mapped to MCP+ASI in display)
+                        ('MCP+ASI', mcp_asi_dir)
                     ]
                     
                     for condition, cond_dir in condition_mapping:
