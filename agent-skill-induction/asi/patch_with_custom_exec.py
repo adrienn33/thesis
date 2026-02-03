@@ -99,19 +99,39 @@ def execute_python_code(
     # Also add to exec globals for direct calls
     globals['_call_mcp_tool'] = _call_mcp_tool
     
-    # Add MCP tool functions to execution context
+    # Add MCP tool functions and ASI skills to execution context
     main_globals = vars(__main__)
-    mcp_funcs_added = []
+    funcs_added = []
+    
+    # Add MCP functions
     for name, obj in main_globals.items():
         if callable(obj) and ('magento_review_server' in name or 'magento_product_server' in name or 'magento_checkout_server' in name or 'magento_wishlist_server' in name or 'magento_account_server' in name or 'find_reviewers' in name or 'get_product_reviews' in name):
             globals[name] = obj
-            mcp_funcs_added.append(name)
+            funcs_added.append(name)
     
-    # Debug: Log what MCP functions are available
-    if mcp_funcs_added:
-        logger.debug(f"Added {len(mcp_funcs_added)} MCP functions to execution context: {mcp_funcs_added}")
+    # Add ASI skills from the shopping module
+    try:
+        from actions import shopping
+        import importlib
+        importlib.reload(shopping)
+        for name in dir(shopping):
+            obj = getattr(shopping, name)
+            if callable(obj) and name.startswith('asi_'):
+                globals[name] = obj
+                funcs_added.append(name)
+        logger.info(f"Added ASI skills from shopping module")
+    except Exception as e:
+        logger.warning(f"Could not import ASI skills: {e}")
+    
+    # Debug: Log what functions are available
+    if funcs_added:
+        mcp_funcs = [f for f in funcs_added if not f.startswith('asi_')]
+        asi_funcs = [f for f in funcs_added if f.startswith('asi_')]
+        logger.info(f"Added {len(mcp_funcs)} MCP functions and {len(asi_funcs)} ASI skills to execution context")
+        logger.debug(f"MCP functions: {mcp_funcs}")
+        logger.debug(f"ASI skills: {asi_funcs}")
     else:
-        logger.warning("No MCP functions found in __main__ to add to execution context!")
+        logger.warning("No MCP functions or ASI skills found to add to execution context!")
         # Log what callable names are in __main__
         callable_names = [name for name, obj in main_globals.items() if callable(obj) and not name.startswith('_')]
         logger.debug(f"Callable functions in __main__: {callable_names[:20]}")

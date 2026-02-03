@@ -192,17 +192,33 @@ def {func_name}({param_str}):
         """Return conditional skill instructions based on MCP availability."""
         has_mcp = bool(self.mcp_manager.get_all_tools())
         
+        # Get available ASI skills dynamically
+        try:
+            from actions import shopping
+            import importlib
+            importlib.reload(shopping)
+            asi_functions = [name for name in dir(shopping) if callable(getattr(shopping, name)) and name.startswith('asi_')]
+            
+            if asi_functions:
+                skill_list = "\n".join([f"    - {func}()" for func in asi_functions])
+                available_skills = f"\n\nAvailable ASI skills:\n{skill_list}"
+            else:
+                available_skills = "\n\nNo ASI skills available yet."
+        except:
+            available_skills = "\n\nCould not load ASI skills."
+        
         if has_mcp:
-            return """IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with asi_). You should STRONGLY PREFER using these skills over low-level browser actions:
+            return f"""IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with asi_). You should STRONGLY PREFER using these skills over low-level browser actions:
 
     1. **MCP tools** provide direct database access and are most reliable
     2. **ASI skills** (prefixed with asi_) are reusable and tested compound actions
-    3. **Browser actions** should only be used as a last resort
-    """
+    3. **Browser actions** should only be used as a last resort{available_skills}
+
+    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names."""
         else:
-            return """IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions. Always check if a relevant ASI skill exists before falling back to browser clicks/fills.
-    
-    IMPORTANT: ALL preferred skills are prefixed with "asi_" and should be prioritized"""
+            return f"""IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions.{available_skills}
+
+    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names. If no suitable ASI skill exists, use browser actions."""
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
         if len(self.actions) == 0 or (self.num_actions > (len(self.actions) - 1)):
