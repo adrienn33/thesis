@@ -368,10 +368,10 @@ def {func_name}({param_str}):
     magento_product_server_search_products(name="Amazon Basics")
     
     # CORRECT - capture result and process it
-    products = magento_product_server_search_products(name="Amazon Basics")
-    min_price = min(float(p['price']) for p in products)
-    max_price = max(float(p['price']) for p in products) 
-    send_msg_to_user(f"Price range: ${min_price:.2f} - ${max_price:.2f}")
+    # products = magento_product_server_search_products(name="Amazon Basics")
+    # min_price = min(float(p['price']) for p in products)
+    # max_price = max(float(p['price']) for p in products) 
+    # send_msg_to_user(f"Price range: ${{min_price:.2f}} - ${{max_price:.2f}}")
     ```
     
     Here are examples of actions with chain-of-thought reasoning:

@@ -7,40 +7,6 @@ page: playwright.sync_api.Page = None
 # Skills will be induced here by ASI
 
 
-def search_for_product(search_bar_id: str, search_query: str):
-    """Search for a product using the search bar.
-    
-    Args:
-        search_bar_id: The ID of the search bar element
-        search_query: The text to search for
-    
-    Returns:
-        None
-    
-    Examples:
-        search_for_product('567', 'Nintendo Switch game card storage case')
-    """
-    click(search_bar_id)
-    fill(search_bar_id, search_query)
-    keyboard_press("Enter")
-
-def check_reviews_for_keyword(reviews_tab_id: str, keyword: str):
-    """Click on reviews tab and check if any reviews mention a specific keyword.
-    If no reviews mention the keyword, report as infeasible.
-    
-    Args:
-        reviews_tab_id: The ID of the reviews tab element
-        keyword: The keyword to look for in reviews
-    
-    Returns:
-        None
-    
-    Examples:
-        check_reviews_for_keyword('1690', 'underwater photo')
-    """
-    click(reviews_tab_id)
-    report_infeasible(f"There are no reviews that mention {keyword} for this camera.")
-
 def view_product_reviews(reviews_tab_id: str):
     """Navigate to the product reviews tab.
     
@@ -143,6 +109,21 @@ def find_and_review_product_mentions(product_id: str, mention_keyword: str) -> d
         "product_id": product_id
     }
 
+def set_items_per_page(dropdown_id: str, items_count: str):
+    """Set the number of items to display per page in a listing.
+    
+    Args:
+        dropdown_id: The ID of the dropdown selector
+        items_count: The number of items to show per page (e.g., '20', '50', '100')
+    
+    Returns:
+        None
+    
+    Examples:
+        set_items_per_page('1509', '50')
+    """
+    select_option(dropdown_id, items_count)  # Select number of items to show per page
+
 def navigate_to_my_orders(account_link_id: str, orders_link_id: str):
     """Navigate to the My Orders page to view order history.
     
@@ -159,18 +140,20 @@ def navigate_to_my_orders(account_link_id: str, orders_link_id: str):
     click(account_link_id)  # Click on My Account
     click(orders_link_id)  # Click on My Orders
 
-def set_items_per_page(select_id: str, item_count: str):
-    """Change the number of items displayed per page using a dropdown selector.
+def search_for_product(search_bar_id: str, product_name: str):
+    """Search for a product using the search bar and submit the query.
     
     Args:
-        select_id: The ID of the select/dropdown element
-        item_count: The number of items to display per page (as a string)
+        search_bar_id: The ID of the search bar element
+        product_name: The product name or query to search for
     
     Returns:
         None
     
     Examples:
-        set_items_per_page('1509', '50')
-        set_items_per_page('1509', '100')
+        search_for_product('567', 'Nintendo Switch game card storage case')
+        search_for_product('179', 'Nintendo Switch game card storage')
     """
-    select_option(select_id, item_count)
+    click(search_bar_id)
+    fill(search_bar_id, product_name)
+    keyboard_press('Enter')
