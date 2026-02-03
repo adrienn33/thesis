@@ -116,8 +116,8 @@ def induce_actions() -> list[str] | None:
     existing_funcs_summary = '\n'.join(existing_signatures) if existing_signatures else "None"
     existing_names_list = ', '.join(unique_existing_names) if unique_existing_names else "None"
     
-    # Determine if this is an MCP-enabled experiment
-    is_mcp_enabled = any('-mcp-container.json' in r for r in result_dir_list)
+    # Use explicit MCP enablement argument
+    is_mcp_enabled = args.mcp_enabled
     
     # Choose appropriate instruction file based on MCP availability
     if is_mcp_enabled:
@@ -421,7 +421,11 @@ if __name__ == "__main__":
     parser.add_argument("--write_action_path", type=str, default=None)
     parser.add_argument("--write_tests_dir", type=str, default="debug_actions")
     parser.add_argument("--eval_with_gold", action="store_true", help="If perform evaluation with ground-truth.")
+    parser.add_argument("--mcp_enabled", type=str, choices=["true", "false"], default="false", help="Whether MCP tools are enabled for this experiment")
     args = parser.parse_args()
+    
+    # Convert string argument to boolean
+    args.mcp_enabled = args.mcp_enabled.lower() == "true"
 
     # decide model name
     if args.model == "claude":
@@ -434,19 +438,15 @@ if __name__ == "__main__":
 
     # decide path for entire model output
     args = get_output_dir(args)
+    # ALWAYS run fresh induction - no caching
     if os.path.exists(args.output_dir):
-        print(f"Output directory already exists: {args.output_dir}")
-        names = sorted(os.listdir(args.output_dir), key=lambda x: int(x.split('.')[0]))
-        print(f"Found {len(names)} existing response files: {names}")
-        paths = [os.path.join(args.output_dir, f) for f in names]
-        responses = [open(p, 'r').read() for p in paths]
-        if len(responses) == 0:
-            print(f"WARNING: Output directory exists but contains no response files. Re-running induction...")
-            responses = induce_actions()
-    else:  # induce new actions
-        print(f"Creating new output directory: {args.output_dir}")
-        os.makedirs(args.output_dir, exist_ok=True)
-        responses = induce_actions()
+        print(f"Output directory already exists: {args.output_dir} - removing and regenerating")
+        import shutil
+        shutil.rmtree(args.output_dir)
+    
+    print(f"Creating new output directory: {args.output_dir}")
+    os.makedirs(args.output_dir, exist_ok=True)
+    responses = induce_actions()
     
     # write actions and run tests
     print(f"Collected {len(responses)} Responses..")

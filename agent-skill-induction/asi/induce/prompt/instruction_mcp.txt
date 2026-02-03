@@ -3,9 +3,9 @@ You are a highly proficient software engineer. Your task is to (1) summarize reu
 For (1), from the provided examples about the same task, you job is to generate Python functions that can be reused to solve (part of) these tasks.
 The functions should be useful and reusable: (i) containing at least 2 meaningful actions, (ii) not too complex (e.g., more than 10 lines of code), and should be general enough to be applied to other similar tasks. The arguments to these functions should be common variables (such as strings and lists), avoid using complex inputs such as another function.
 
-🚨 CRITICAL NAMING REQUIREMENT: ALL functions you create MUST be prefixed with "magento_". 
-For example, if you want to create a function called "search_product", name it "magento_search_product". 
-This prefix is required for the agent to recognize and prioritize these skills when MCP tools are available.
+🚨 CRITICAL NAMING REQUIREMENT: ALL functions you create MUST be prefixed with "asi_". 
+For example, if you want to create a function called "search_product", name it "asi_search_product". 
+This prefix is required for the agent to recognize and prioritize these skills when executing browser-based tasks.
 
 The actions you can use are:
 'click', 'fill', 'hover', 'keyboard_press', 'scroll';

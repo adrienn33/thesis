@@ -193,13 +193,12 @@ def {func_name}({param_str}):
         has_mcp = bool(self.mcp_manager.get_all_tools())
         
         if has_mcp:
-            return """IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with magento_). You should STRONGLY PREFER using these skills over low-level browser actions:
+            return """IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with asi_). You should STRONGLY PREFER using these skills over low-level browser actions:
 
     1. **MCP tools** provide direct database access and are most reliable
-    2. **ASI skills** (prefixed with magento_) are reusable browser-based skills
+    2. **ASI skills** (prefixed with asi_) are reusable and tested compound actions
     3. **Browser actions** should only be used as a last resort
-    
-    IMPORTANT: ALL preferred skills are prefixed with "magento" and should be prioritized"""
+    """
         else:
             return """IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions. Always check if a relevant ASI skill exists before falling back to browser clicks/fills.
     

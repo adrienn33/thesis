@@ -178,6 +178,7 @@ def run_asi():
             "venv/bin/python3", "-m", "induce.induce_actions",
             "--website", args.website,
             "--result_id_list", tid,
+            "--mcp_enabled", "true",
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         induced_skills_count = 0
@@ -289,6 +290,7 @@ def run_vanilla_asi():
             "venv/bin/python3", "-m", "induce.induce_actions",
             "--website", args.website,
             "--result_id_list", tid,
+            "--mcp_enabled", "false",
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         induced_skills_count = 0

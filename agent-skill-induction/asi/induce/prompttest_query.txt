@@ -1,0 +1,14 @@
+## Task: List out reviewers, if exist, who mention about {{description}}
+### Example 1 (23): List out reviewers, if exist, who mention about good fingerprint resistant
+Clicked the Reviews tab to view the 12 available reviews for the Samsung Galaxy S6 Screen Protector.
+```click('1681')```
+Scrolling down in the Reviews section to view additional reviews and identify all reviewers who mention "good fingerprint resistant" properties.
+```click('2074')```
+Scrolled down to view all reviews on the current page (Page 2 of reviews) to check for mentions of "fingerprint resistant" properties.
+```scroll(0, 500)```
+Navigated to page 1 of the Reviews section to systematically view all reviews and search for those mentioning "good fingerprint resistant".
+```click('2169')```
+Scrolling down to view all reviews on the page and verify which ones mention fingerprint resistance.
+```scroll(0, 300)```
+Identified two reviewers who mention fingerprint resistance: Rachel and T. Gannon from the 12 visible reviews on page 1.
+```send_msg_to_user("Reviewers who mention good fingerprint resistant:\n\n1. Rachel - 'It is super clear and fingerprint resistant.'\n2. T. Gannon - 'Seems much better than the one replaced, it does seem to resist fingerprints and stay cleaner.'")```
