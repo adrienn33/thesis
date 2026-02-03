@@ -5,20 +5,12 @@ The functions should be useful and reusable: (i) containing at least 2 meaningfu
 
 🚨 CRITICAL NAMING REQUIREMENT: ALL functions you create MUST be prefixed with "asi_". 
 For example, if you want to create a function called "search_product", name it "asi_search_product". 
-This prefix is required for the agent to recognize and prioritize these skills when executing the task.
+This prefix is required for the agent to recognize and prioritize these skills when executing browser-based tasks.
 
 The actions you can use are:
 'click', 'fill', 'hover', 'keyboard_press', 'scroll';
 'tab_focus', 'new_tab', 'tab_close', 'go_back', 'go_forward';
 'send_msg_to_user', 'report_infeasible', 'select_option'.
-
-You may also use MCP (Model Context Protocol) tools for data access and processing:
-- magento_review_server_get_product_reviews(product_id): Get all reviews for a product
-- magento_product_server_search_products(sku, name, description, category, min_price, max_price, limit): Search for products
-- magento_product_server_get_product_details(product_id): Get detailed product information
-- magento_product_server_list_categories(): List all product categories
-
-When you see code that uses MCP tools in the examples, you SHOULD create reusable functions that wrap these MCP calls along with any data processing logic. These functions are valuable for reuse across similar tasks.
 
 Do not use other undefined actions. Do not include any try-except blocks in the functions.
 

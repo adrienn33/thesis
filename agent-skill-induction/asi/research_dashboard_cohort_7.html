@@ -40,16 +40,44 @@
         }
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             margin-bottom: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+            }
         }
         .kpi-card {
             background: #ffffff;
             border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 24px;
             text-align: center;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        .kpi-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .kpi-card.vanilla {
+            border-left: 4px solid #6c757d;
+        }
+        .kpi-card.vanilla-asi {
+            border-left: 4px solid #17a2b8;
+        }
+        .kpi-card.mcp {
+            border-left: 4px solid #28a745;
+        }
+        .kpi-card.mcp-asi {
+            border-left: 4px solid #007bff;
         }
         .kpi-card h3 {
             color: #2c3e50;
@@ -133,51 +161,51 @@
         <div class="subtitle">WebArena E-commerce Task Performance Analysis</div>
         
         <div class="meta-info">
-            <div><strong>Analysis Date:</strong> 2026-01-22 15:09:55</div>
-            <div><strong>Data Source:</strong> Cohort: cohort_7</div>
-            <div><strong>Total Experiments:</strong> 2</div>
+            <div><strong>Analysis Date:</strong> 2026-02-02 23:15:06</div>
+            <div><strong>Data Source:</strong> cohort_7</div>
+            <div><strong>Total Experiments:</strong> 20</div>
             <div><strong>Task Domain:</strong> Shopping (Magento)</div>
         </div>
 
         <!-- Core KPIs -->
         <div class="kpi-grid">
-            <div class="kpi-card">
+            <div class="kpi-card vanilla">
                 <h3>Vanilla (Control)</h3>
-                <div class="kpi-value warning">0.0%</div>
-                <div class="kpi-label">Task Success Rate</div>
-                <div style="margin-top: 10px;">
-                    <small>n = 1 | Avg Steps: 4.0</small>
-                </div>
-            </div>
-            <div class="kpi-card">
-                <h3>MCP Only</h3>
                 <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
                     <small>n = 0 | Avg Steps: 0.0</small>
                 </div>
             </div>
-            <div class="kpi-card">
-                <h3>Vanilla + ASI</h3>
-                <div class="kpi-value warning">0.0%</div>
+            <div class="kpi-card mcp">
+                <h3>MCP Tools Only</h3>
+                <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 1 | Skill Reuse: 0.0%</small>
+                    <small>n = 0 | Avg Steps: 0.0</small>
                 </div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card vanilla-asi">
+                <h3>Vanilla + ASI</h3>
+                <div class="kpi-value success">50.0%</div>
+                <div class="kpi-label">Task Success Rate</div>
+                <div style="margin-top: 10px;">
+                    <small>n = 20 | Avg Steps: 6.8 | Skill Reuse: 0.0%</small>
+                </div>
+            </div>
+            <div class="kpi-card mcp-asi">
                 <h3>MCP + ASI</h3>
                 <div class="kpi-value danger">0.0%</div>
                 <div class="kpi-label">Task Success Rate</div>
                 <div style="margin-top: 10px;">
-                    <small>n = 0 | Skill Reuse: 0.0%</small>
+                    <small>n = 0 | Avg Steps: 0.0 | Skill Reuse: 0.0%</small>
                 </div>
             </div>
         </div>
 
         <!-- Research Hypotheses Analysis -->
         <div class="hypothesis-section">
-            <h3>📊 Research Hypothesis Validation</h3>
+            <h3>Research Hypothesis Validation</h3>
             
             <div class="metric-row">
                 <div><strong>H1: MCP tooling improves task success rate</strong></div>
@@ -186,7 +214,7 @@
             
             <div class="metric-row">
                 <div><strong>H2: ASI improves success rate (Vanilla baseline)</strong></div>
-                <div><span class="badge insufficient">Small Sample</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
             
             <div class="metric-row">
@@ -201,7 +229,7 @@
             
             <div class="metric-row">
                 <div><strong>H5: ASI demonstrates skill reuse capabilities</strong></div>
-                <div><span class="badge insufficient">Small Sample</span></div>
+                <div><span class="badge insufficient">Insufficient Data</span></div>
             </div>
         </div>
 
@@ -220,22 +248,17 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Vanilla</strong> (n=1)</td>
-                    <td>0.0%</td>
-                    <td>4.0 ± 0.0</td>
-                    <td>16.3s</td>
-                    <td>0.0</td>
-                    <td>0.0</td>
-                    <td>250,536</td>
+                    <td><strong>Vanilla</strong></td>
+                    <td colspan="6" style="text-align: center; color: #6c757d;">No experiments available</td>
                 </tr>
                 <tr>
-                    <td><strong>Vanilla+ASI</strong> (n=1)</td>
-                    <td>0.0%</td>
-                    <td>10.0 ± 0.0</td>
-                    <td>32.0s</td>
+                    <td><strong>Vanilla+ASI</strong> (n=20)</td>
+                    <td>50.0%</td>
+                    <td>6.8 ± 3.1</td>
+                    <td>21.3s</td>
                     <td>0.0</td>
-                    <td>0.0</td>
-                    <td>627,513</td>
+                    <td>0.3</td>
+                    <td>427,307</td>
                 </tr>
                 <tr>
                     <td><strong>MCP</strong></td>
@@ -249,20 +272,10 @@
         </table>
 
         <!-- Effect Size Analysis -->
-        <div class="hypothesis-section">
-            <h3>📈 Effect Size Analysis</h3>
-            <div class="metric-row">
-                <div><strong>VanillaASI vs Vanilla</strong></div>
-                <div>
-                    Success: +0.0% | 
-                    Efficiency: -150.0%
-                    
-                </div>
-            </div></div>
         <div class="footnote">
             <p><strong>Methodology:</strong> Analysis based on WebArena shopping task experiments. Success rate = tasks achieving reward ≥ 1.0. 
             Effect sizes calculated as percentage improvement over baseline. Sample size adequacy threshold = 10 experiments per condition.</p>
-            <p><strong>Generated:</strong> 2026-01-22 15:09:55 | <strong>Data Source:</strong> ASI Research Metrics v1.0</p>
+            <p><strong>Generated:</strong> 2026-02-02 23:15:06 | <strong>Data Source:</strong> ASI Research Metrics v1.0</p>
         </div>
     </div>
 </body>

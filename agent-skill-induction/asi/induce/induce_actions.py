@@ -116,8 +116,25 @@ def induce_actions() -> list[str] | None:
     existing_funcs_summary = '\n'.join(existing_signatures) if existing_signatures else "None"
     existing_names_list = ', '.join(unique_existing_names) if unique_existing_names else "None"
     
+    # Determine if this is an MCP-enabled experiment
+    is_mcp_enabled = any('-mcp-container.json' in r for r in result_dir_list)
+    
+    # Choose appropriate instruction file based on MCP availability
+    if is_mcp_enabled:
+        if 'instruction.txt' in args.instruction_path:
+            instruction_path = args.instruction_path.replace('instruction.txt', 'instruction_mcp.txt')
+        else:
+            instruction_path = args.instruction_path  # Assume explicitly specified
+    else:
+        if 'instruction.txt' in args.instruction_path:
+            instruction_path = args.instruction_path.replace('instruction.txt', 'instruction_vanilla.txt')
+        else:
+            instruction_path = args.instruction_path  # Assume explicitly specified
+    
+    print(f"[INDUCE] Using instruction file: {instruction_path} (MCP enabled: {is_mcp_enabled})")
+    
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
-    messages += [{"role": "user", "content": open(args.instruction_path).read()}]
+    messages += [{"role": "user", "content": open(instruction_path).read()}]
     messages += [{"role": "user", "content": open(args.few_shot_path).read()}]
     messages += [{"role": "user", "content": f"""## ⚠️ CRITICAL: EXISTING SKILLS - DO NOT DUPLICATE
 

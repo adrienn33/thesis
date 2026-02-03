@@ -188,6 +188,23 @@ def {func_name}({param_str}):
             if self.memory.strip() == "":
                 self.memory = None
 
+    def _get_skill_instructions(self) -> str:
+        """Return conditional skill instructions based on MCP availability."""
+        has_mcp = bool(self.mcp_manager.get_all_tools())
+        
+        if has_mcp:
+            return """IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with magento_). You should STRONGLY PREFER using these skills over low-level browser actions:
+
+    1. **MCP tools** provide direct database access and are most reliable
+    2. **ASI skills** (prefixed with magento_) are reusable browser-based skills
+    3. **Browser actions** should only be used as a last resort
+    
+    IMPORTANT: ALL preferred skills are prefixed with "magento" and should be prioritized"""
+        else:
+            return """IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions. Always check if a relevant ASI skill exists before falling back to browser clicks/fills.
+    
+    IMPORTANT: ALL preferred skills are prefixed with "asi_" and should be prioritized"""
+
     def get_action(self, obs: dict) -> tuple[str, dict]:
         if len(self.actions) == 0 or (self.num_actions > (len(self.actions) - 1)):
             system_msgs = []
@@ -200,10 +217,11 @@ def {func_name}({param_str}):
                         "text": f"""\
     # Instructions
 
-    You are a UI Assistant, your goal is to help the user perform tasks using a web browser. You can
-    communicate with the user via a chat, to which the user gives you instructions and to which you
-    can send back messages. You have access to a web browser that both you and the user can see,
-    and with which only you can interact via specific commands.
+    You are a dedicated shopping agent, and your goal is to help the user complete their online 
+    shopping tasks. You can communicate with the user via chat, to which the user gives you 
+    instructions and to which you can send back messages. You have access to a web browser 
+    that both you and the user can see, and with which only you can interact via specific 
+    commands.
 
     Review the instructions from the user, the current state of the page and all other information
     to find the best possible next action to accomplish your goal. Your answer will be interpreted
@@ -346,23 +364,20 @@ def {func_name}({param_str}):
     # Action Space
 
     {self.action_set.describe(with_long_description=True, with_examples=True)}
-
-    When high-level functions such as `get_driving_time` or 'book_flights` are available, please prioritize using them.
     
-    IMPORTANT: If website-specific skill functions are available (such as `search_for_product`, `check_reviews_for_keyword`, etc.), you should STRONGLY PREFER using these skills over low-level browser actions. These skills are reusable, tested, and more efficient than browser interactions. Always check if a relevant skill exists before falling back to browser clicks/fills.
+    {self._get_skill_instructions()}
     
-    IMPORTANT: If MCP tool functions are available (functions starting with `magento_review_server_`, `magento_product_server_`, or similar prefixes), you MUST prioritize using them over browser interactions when they can accomplish your goal. MCP tools provide direct database access and are more reliable than browser scraping.
-    
-    CRITICAL: When processing MCP tool responses containing lists/arrays of data:
+    CRITICAL: When processing the results of skill functions containing lists/arrays of data:
     - NEVER manually transcribe or copy-paste data items one by one
     - ALWAYS use programmatic iteration (for loops, list comprehensions) to process all items
-    - ALWAYS verify your count matches the returned data length (e.g., if MCP returns len=21, your analysis should include all 21 items)
+    - ALWAYS verify your count matches the returned data length (e.g., if it returns len=21, your analysis should include all 21 items)
     - Use built-in functions like sum(), len(), max(), min() for calculations instead of manual arithmetic
-    - Example: If MCP returns a list of orders, use `total = sum(order['grand_total'] for order in orders)` instead of manually adding individual values
     
     CRITICAL: When writing Python code in triple backticks, write COMPLETE executable code that accomplishes the task. Don't just call a function - capture the result, process it, and report findings using send_msg_to_user(). For example, when searching reviews: capture return value → filter/process data → send results to user.
+
+    CRITICAL: When reporting results to the user, you MUST send the result via message.
     
-    CRITICAL: NEVER write single-line MCP tool calls like `magento_product_server_search_products(name="Amazon Basics")`. This will auto-display the result but NOT process it. ALWAYS capture the return value and process it immediately:
+    Example:
     ```
     # WRONG - execution stops after the call
     magento_product_server_search_products(name="Amazon Basics")

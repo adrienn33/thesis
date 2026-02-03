@@ -109,21 +109,6 @@ def find_and_review_product_mentions(product_id: str, mention_keyword: str) -> d
         "product_id": product_id
     }
 
-def set_items_per_page(dropdown_id: str, items_count: str):
-    """Set the number of items to display per page in a listing.
-    
-    Args:
-        dropdown_id: The ID of the dropdown selector
-        items_count: The number of items to show per page (e.g., '20', '50', '100')
-    
-    Returns:
-        None
-    
-    Examples:
-        set_items_per_page('1509', '50')
-    """
-    select_option(dropdown_id, items_count)  # Select number of items to show per page
-
 def navigate_to_my_orders(account_link_id: str, orders_link_id: str):
     """Navigate to the My Orders page to view order history.
     
