@@ -145,6 +145,9 @@ def gitlab_get_project_memeber_role(page: Page, account_name: str) -> str:
 
 def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
     """Check whether the prediction matches the reference with GPT4-turbo"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     messages: list[dict[str, Any]] = []
     # construct the question to ask
     message = "Help a teacher to grade the answer of a student given a question. Keep in mind that the student may use different phrasing or wording to answer the question. The goal is to evaluate whether the answer is semantically equivalent to the reference answer.\n"
@@ -158,23 +161,54 @@ def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
         {"role": "user", "content": message},
     ]
 
-    response = generate_from_openai_chat_completion(
-        model="gpt-4-1106-preview",
-        messages=messages,
-        temperature=0,
-        max_tokens=768,
-        top_p=1.0,
-        context_length=0,
-    ).lower()
-    if "partially correct" in response or "incorrect" in response:
+    # Log the evaluation attempt
+    logger.info(f"LLM_FUZZY_MATCH: Evaluating reference='{reference}' against pred='{pred[:100]}{'...' if len(pred) > 100 else ''}'")
+    logger.info(f"LLM_FUZZY_MATCH: Full evaluation prompt:\n{message}")
+    
+    try:
+        response = generate_from_openai_chat_completion(
+            model="gpt-4-1106-preview",
+            messages=messages,
+            temperature=0,
+            max_tokens=768,
+            top_p=1.0,
+            context_length=0,
+        )
+        
+        # Log the raw response before processing
+        logger.info(f"LLM_FUZZY_MATCH: Raw LLM response: '{response}'")
+        
+        response_lower = response.lower()
+        logger.info(f"LLM_FUZZY_MATCH: Lowercased response: '{response_lower}'")
+        
+        if "partially correct" in response_lower or "incorrect" in response_lower:
+            score = 0.0
+            logger.info(f"LLM_FUZZY_MATCH: RESULT=FAIL (score=0.0) - Found 'partially correct' or 'incorrect'")
+        elif "correct" in response_lower:
+            score = 1.0
+            logger.info(f"LLM_FUZZY_MATCH: RESULT=PASS (score=1.0) - Found 'correct'")
+        else:
+            logger.warning(f"LLM_FUZZY_MATCH: UNEXPECTED RESPONSE FORMAT - no clear judgment found")
+            logger.warning(f"LLM_FUZZY_MATCH: This will trigger AssertionError and return 0.0")
+            assert "correct" in response_lower
+            
+        return score
+        
+    except AssertionError as e:
+        logger.error(f"LLM_FUZZY_MATCH: AssertionError caught - LLM response did not contain 'correct': {e}")
+        logger.error(f"LLM_FUZZY_MATCH: Returning 0.0 due to AssertionError")
         return 0.0
-    else:
-        assert "correct" in response
-        return 1.0
+    except Exception as e:
+        logger.error(f"LLM_FUZZY_MATCH: Unexpected error during evaluation: {type(e).__name__}: {e}")
+        logger.error(f"LLM_FUZZY_MATCH: Returning 0.0 due to error")
+        return 0.0
 
 
 def llm_ua_match(pred: str, reference: str, question: str) -> float:
     """Check whether the prediction matches the reference with GPT-turbo"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     messages: list[dict[str, Any]] = []
     # construct the question to ask
     message = ""
@@ -193,19 +227,48 @@ def llm_ua_match(pred: str, reference: str, question: str) -> float:
         {"role": "user", "content": message},
     ]
 
-    response = generate_from_openai_chat_completion(
-        model="gpt-4-1106-preview",
-        messages=messages,
-        temperature=0,
-        max_tokens=768,
-        top_p=1.0,
-        context_length=0,
-    ).lower()
-    if "different" in response:
+    # Log the evaluation attempt
+    logger.info(f"LLM_UA_MATCH: Evaluating unachievable reason match")
+    logger.info(f"LLM_UA_MATCH: Reference='{reference}' vs Pred='{pred[:100]}{'...' if len(pred) > 100 else ''}'")
+    logger.info(f"LLM_UA_MATCH: Full evaluation prompt:\n{message}")
+    
+    try:
+        response = generate_from_openai_chat_completion(
+            model="gpt-4-1106-preview",
+            messages=messages,
+            temperature=0,
+            max_tokens=768,
+            top_p=1.0,
+            context_length=0,
+        )
+        
+        # Log the raw response before processing
+        logger.info(f"LLM_UA_MATCH: Raw LLM response: '{response}'")
+        
+        response_lower = response.lower()
+        logger.info(f"LLM_UA_MATCH: Lowercased response: '{response_lower}'")
+        
+        if "different" in response_lower:
+            score = 0.0
+            logger.info(f"LLM_UA_MATCH: RESULT=FAIL (score=0.0) - Found 'different'")
+        elif "same" in response_lower:
+            score = 1.0
+            logger.info(f"LLM_UA_MATCH: RESULT=PASS (score=1.0) - Found 'same'")
+        else:
+            logger.warning(f"LLM_UA_MATCH: UNEXPECTED RESPONSE FORMAT - no clear judgment found")
+            logger.warning(f"LLM_UA_MATCH: This will trigger AssertionError and return 0.0")
+            assert "same" in response_lower
+            
+        return score
+        
+    except AssertionError as e:
+        logger.error(f"LLM_UA_MATCH: AssertionError caught - LLM response did not contain 'same': {e}")
+        logger.error(f"LLM_UA_MATCH: Returning 0.0 due to AssertionError")
         return 0.0
-    else:
-        assert "same" in response
-        return 1.0
+    except Exception as e:
+        logger.error(f"LLM_UA_MATCH: Unexpected error during evaluation: {type(e).__name__}: {e}")
+        logger.error(f"LLM_UA_MATCH: Returning 0.0 due to error")
+        return 0.0
 
 
 class PseudoPage:

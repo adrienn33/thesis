@@ -1,27 +1,24 @@
 ## Task: Get the order number of my most recent {{status}} order 
 ### Example 1 (234): Get the order number of my most recent on hold order 
-I need more information to provide an accurate summary. Could you please provide:
+I need more information to provide an accurate summary. Could you please share:
 
 1. **The thought process** - What steps did you take or plan to take?
-2. **The environmental description** - What does the current state of the application show (accessibility tree, page content, etc.)?
-3. **The action taken** - What specific action did you perform (e.g., clicked a button, entered text, called an MCP tool)?
+2. **The environmental description** - What does the current state of the application show (accessibility tree, available options, etc.)?
+3. **The action taken** - What button/link did you click or what MCP tool did you execute?
 
-Once you provide these details, I can summarize the main action and resulting state change in the format:
+Once you provide these details, I can summarize the main action and resulting state change.
 
-**Action:** [What was done]
-**Result:** [What changed as a result]
-
-For example, if you called an MCP tool to retrieve orders, I would need to know:
-- Which MCP tool was called and with what parameters
-- What results were returned
-- What the current page/state shows after that action
+For example, if you executed an MCP tool call, please share:
+- Which tool was called (e.g., `get_orders`, `filter_orders`, etc.)
+- What parameters were used
+- What the response showed
 ```
-orders = magento_checkout_server_list_orders(status="on-hold")
+orders = magento_checkout_server_list_orders(status="on hold")
 if orders:
     # Sort by date to get the most recent
-    most_recent = orders[0]
+    most_recent = orders[0]  # Assuming the API returns them in reverse chronological order
     order_number = most_recent.get('increment_id')
-    send_msg_to_user(f"Your most recent on hold order number is: {order_number}")
+    send_msg_to_user(f"The order number of your most recent on hold order is: {order_number}")
 else:
-    send_msg_to_user("No on hold orders found.")
+    send_msg_to_user("You do not have any on hold orders.")
 ```

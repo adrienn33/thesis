@@ -148,8 +148,13 @@ class StringEvaluator(Evaluator):
                             tokenize=(len(value) == 1),
                         )
                 case "fuzzy_match":
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"STRING_EVALUATOR: Starting fuzzy_match evaluation")
+                    
                     intent = configs["intent"]
                     if value == "N/A":
+                        logger.info(f"STRING_EVALUATOR: fuzzy_match with N/A value - using exact/ua_match")
                         # if the instruction only asks the model to generate N/A when encountering an unachievable task
                         # without more concrete reasons
                         score *= self.exact_match(ref=value, pred=pred)
@@ -163,10 +168,22 @@ class StringEvaluator(Evaluator):
                             )
                     else:
                         assert isinstance(value, list)
-                        for reference in value:
-                            score *= self.fuzzy_match(
+                        logger.info(f"STRING_EVALUATOR: fuzzy_match with {len(value)} references: {value}")
+                        logger.info(f"STRING_EVALUATOR: Current score before fuzzy_match: {score}")
+                        
+                        for i, reference in enumerate(value, 1):
+                            logger.info(f"STRING_EVALUATOR: Processing reference {i}/{len(value)}: '{reference}'")
+                            logger.info(f"STRING_EVALUATOR: Score before this reference: {score}")
+                            
+                            ref_score = self.fuzzy_match(
                                 ref=reference, pred=pred, intent=intent
                             )
+                            
+                            logger.info(f"STRING_EVALUATOR: Reference {i} score: {ref_score}")
+                            score *= ref_score
+                            logger.info(f"STRING_EVALUATOR: Score after reference {i}: {score}")
+                            
+                        logger.info(f"STRING_EVALUATOR: Final fuzzy_match score: {score}")
         return score
 
 
