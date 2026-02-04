@@ -163,7 +163,40 @@ class MagentoWishlistServer(MCPServer):
             customer_email: Customer email address (defaults to Emma Lopez)
             
         Returns:
-            Wishlist information with items and product details
+            Wishlist information with this structure:
+            {
+                "wishlist_id": 123,                  // int: Wishlist entity ID
+                "updated_at": "2023-06-15 14:30:00", // str: Last modification timestamp
+                "item_count": 3,                     // int: Total number of items in wishlist
+                "items": [                           // list: Wishlist items
+                    {
+                        "wishlist_item_id": 456,     // int: Unique wishlist item ID
+                        "product_id": 789,           // int: Product entity ID
+                        "sku": "B006H52HBC",         // str: Product SKU
+                        "name": "Headphones",        // str: Product name
+                        "price": 29.95,              // float|null: Product price
+                        "qty": 2,                    // float: Desired quantity
+                        "is_in_stock": true,         // bool: Stock availability
+                        "added_at": "2023-06-10 10:15:00", // str: When added to wishlist
+                        "description": "Birthday gift" // str: Optional user note/description
+                    }
+                ]
+            }
+            
+            Empty wishlist response:
+            {
+                "wishlist_id": 124,
+                "items": [],
+                "item_count": 0
+            }
+            
+            Error response:
+            {
+                "error": "Customer not found: invalid@email.com"
+            }
+            
+            Use wishlist_item_id for remove_from_wishlist() operations.
+            If customer has no wishlist, one is created automatically.
             
         Examples:
             get_wishlist("emma.lopez@gmail.com")
@@ -276,7 +309,35 @@ class MagentoWishlistServer(MCPServer):
             description: Optional description/note for the wishlist item
             
         Returns:
-            Wishlist item information with item_id
+            Wishlist addition result with this structure:
+            {
+                "success": true,                     // bool: Addition operation success
+                "wishlist_id": 123,                  // int: Wishlist entity ID
+                "wishlist_item_id": 456,             // int: New wishlist item ID
+                "product": {
+                    "id": 789,                       // int: Product entity ID
+                    "sku": "B006H52HBC",             // str: Product SKU
+                    "name": "Headphones",            // str: Product name
+                    "price": 29.95                   // float|null: Product price
+                },
+                "qty": 2,                            // float: Quantity added
+                "description": "Birthday gift idea" // str: User description/note
+            }
+            
+            Error responses:
+            {
+                "error": "Customer not found: invalid@email.com"
+            }
+            {
+                "error": "Product not found: InvalidSKU"
+            }
+            {
+                "error": "Product already in wishlist (item_id: 456)"
+            }
+            
+            Product can be specified by entity ID (numeric) or SKU (string).
+            Creates wishlist automatically if customer doesn't have one.
+            Prevents duplicate items - use update if item already exists.
             
         Examples:
             add_to_wishlist("emma.lopez@gmail.com", "B006H52HBC")
@@ -431,7 +492,27 @@ class MagentoWishlistServer(MCPServer):
             wishlist_item_id: Wishlist item ID (from get_wishlist response)
             
         Returns:
-            Confirmation with removed product information
+            Wishlist removal result with this structure:
+            {
+                "success": true,                     // bool: Removal operation success
+                "removed_item_id": 456,              // int: Wishlist item ID that was removed
+                "removed_product": {
+                    "sku": "B006H52HBC",             // str: Product SKU that was removed
+                    "name": "Headphones"             // str: Product name that was removed
+                },
+                "remaining_items": 2                 // int: Number of items left in wishlist
+            }
+            
+            Error responses:
+            {
+                "error": "Customer not found: invalid@email.com"
+            }
+            {
+                "error": "Wishlist item 999 not found for customer"
+            }
+            
+            Use wishlist_item_id from get_wishlist() response to specify which item to remove.
+            Updates wishlist timestamp automatically after removal.
             
         Examples:
             remove_from_wishlist("emma.lopez@gmail.com", "123")

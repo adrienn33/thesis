@@ -174,7 +174,40 @@ class MagentoCheckoutServer(MCPServer):
             limit: Maximum number of results (default 100)
             
         Returns:
-            List of orders with order_id, increment_id (order number), customer info, status, dates, and totals
+            List of order dictionaries. Each order has this exact structure:
+            [
+                {
+                    "order_id": 180,                           // int: Internal order ID
+                    "order_number": "000000180",              // str: Public order number
+                    "state": "complete",                      // str: Order state
+                    "status": "complete",                     // str: Order status
+                    "customer": {
+                        "email": "emma.lopez@gmail.com",      // str: Customer email
+                        "firstname": "Emma",                  // str: Customer first name
+                        "lastname": "Lopez"                   // str: Customer last name
+                    },
+                    "created_at": "2023-03-11 14:44:12",     // str: Order creation timestamp
+                    "updated_at": "2023-04-23 16:52:47",     // str: Last update timestamp
+                    "totals": {
+                        "grand_total": 65.32,                // float: TOTAL ORDER AMOUNT
+                        "subtotal": 40.32,                   // float: Subtotal before shipping/tax
+                        "shipping_amount": 25.0,             // float: Shipping cost
+                        "tax_amount": 0,                     // float: Tax amount
+                        "discount_amount": 0                 // float: Discount amount
+                    },
+                    "total_qty_ordered": 5,                   // int: Total items quantity
+                    "shipping_address": {                     // dict or null
+                        "street": "101 S San Mateo Dr",
+                        "city": "San Mateo", 
+                        "region": "California",
+                        "postcode": "94010",
+                        "country": "US"
+                    }
+                }
+            ]
+            
+            CRITICAL: To access the total amount spent, use order['totals']['grand_total']
+            NOT order['grand_total'] (which doesn't exist at the root level).
             
         Examples:
             list_orders()
@@ -298,7 +331,56 @@ class MagentoCheckoutServer(MCPServer):
             order_id: Order entity ID or order increment_id (order number like "000000170")
             
         Returns:
-            Detailed order information including items, addresses, payment, shipping, and totals
+            Detailed order dictionary with this structure:
+            {
+                "order_id": 170,                           // int: Internal order ID
+                "order_number": "000000170",              // str: Public order number
+                "state": "complete",                      // str: Order state
+                "status": "complete",                     // str: Order status
+                "customer": {
+                    "id": 23,                            // int: Customer ID
+                    "email": "emma.lopez@gmail.com",     // str: Customer email
+                    "firstname": "Emma",                 // str: Customer first name
+                    "lastname": "Lopez"                  // str: Customer last name
+                },
+                "dates": {
+                    "created_at": "2023-02-27 13:15:14", // str: Order creation
+                    "updated_at": "2023-04-23 16:52:38"  // str: Last update
+                },
+                "totals": {
+                    "grand_total": 762.18,              // float: TOTAL ORDER AMOUNT
+                    "subtotal": 742.18,                 // float: Subtotal before shipping/tax
+                    "shipping_amount": 20.0,            // float: Shipping cost  
+                    "tax_amount": 0,                    // float: Tax amount
+                    "discount_amount": 0                // float: Discount amount
+                },
+                "items": [                              // List of order items
+                    {
+                        "item_id": 456,                 // int: Order item ID
+                        "product_id": 789,              // int: Product ID
+                        "name": "Product Name",         // str: Product name
+                        "sku": "PROD123",               // str: Product SKU
+                        "qty": 2,                       // int: Quantity ordered
+                        "price": 25.99                  // float: Unit price
+                    }
+                ],
+                "shipping_address": {                   // dict: Shipping address
+                    "street": "101 S San Mateo Dr",
+                    "city": "San Mateo",
+                    "region": "California", 
+                    "postcode": "94010",
+                    "country": "US"
+                },
+                "billing_address": {                    // dict: Billing address
+                    "street": "101 S San Mateo Dr",
+                    "city": "San Mateo",
+                    "region": "California",
+                    "postcode": "94010", 
+                    "country": "US"
+                }
+            }
+            
+            CRITICAL: To access the total amount, use order['totals']['grand_total']
             
         Examples:
             get_order_details("123")
@@ -513,7 +595,25 @@ class MagentoCheckoutServer(MCPServer):
             qty: Quantity to add (default 1)
             
         Returns:
-            Cart item information with item_id and updated cart totals
+            Cart update result with this structure:
+            {
+                "item_id": 234,                      // int: Cart item ID (for future updates/removal)
+                "product": {
+                    "entity_id": 456,                // int: Product ID
+                    "name": "Headphones",            // str: Product name
+                    "sku": "B006H52HBC",             // str: Product SKU
+                    "price": 29.95                   // float: Unit price
+                },
+                "qty": 2,                            // int: Quantity added
+                "cart_totals": {
+                    "items_count": 2,                // int: Number of different items in cart
+                    "items_qty": 3,                  // float: Total quantity of all items
+                    "grand_total": 89.85             // float: TOTAL CART VALUE
+                }
+            }
+            
+            If product already exists in cart, quantities are combined.
+            Use the returned item_id for update_cart_item() or remove_from_cart().
             
         Examples:
             add_to_cart("emma.lopez@gmail.com", "B006H52HBC", "2")
@@ -724,7 +824,30 @@ class MagentoCheckoutServer(MCPServer):
             customer_email: Customer email address
             
         Returns:
-            Cart information with items and totals
+            Cart dictionary with this structure:
+            {
+                "quote_id": 42,                      // int: Internal cart ID
+                "items": [                           // list: Items in cart
+                    {
+                        "item_id": 123,              // int: Cart item ID (for updates/removal)
+                        "product_id": 456,           // int: Product ID
+                        "name": "Headphones",        // str: Product name
+                        "sku": "B006H52HBC",         // str: Product SKU
+                        "qty": 2,                    // int: Quantity in cart
+                        "price": 29.95,             // float: Unit price
+                        "row_total": 59.90,          // float: Total for this line (qty * price)
+                        "product_type": "simple"     // str: Product type
+                    }
+                ],
+                "totals": {
+                    "items_count": 1,                // int: Number of item types
+                    "items_qty": 2,                  // float: Total quantity of all items
+                    "grand_total": 59.90             // float: TOTAL CART VALUE
+                }
+            }
+            
+            If cart is empty, items will be empty array and totals will be zero.
+            Use item_id for update_cart_item() and remove_from_cart() operations.
             
         Examples:
             get_cart("emma.lopez@gmail.com")
@@ -827,7 +950,25 @@ class MagentoCheckoutServer(MCPServer):
             qty: New quantity (must be greater than 0)
             
         Returns:
-            Updated cart information with new totals
+            Cart update result with this structure:
+            {
+                "updated_item_id": 123,              // int: Cart item ID that was updated
+                "product": {
+                    "name": "Headphones",            // str: Product name
+                    "sku": "B006H52HBC",             // str: Product SKU
+                    "price": 29.95                   // float: Unit price
+                },
+                "old_qty": 2,                        // int: Previous quantity
+                "new_qty": 5,                        // int: New quantity
+                "cart_totals": {
+                    "items_count": 2,                // int: Number of different items in cart
+                    "items_qty": 8,                  // float: Total quantity of all items
+                    "grand_total": 179.75            // float: TOTAL CART VALUE
+                }
+            }
+            
+            Use item_id from get_cart() or add_to_cart() responses.
+            To remove an item completely, use remove_from_cart() instead.
             
         Examples:
             update_cart_item("emma.lopez@gmail.com", "123", "5")
@@ -943,7 +1084,33 @@ class MagentoCheckoutServer(MCPServer):
             item_id: Cart item ID (from get_cart response)
             
         Returns:
-            Updated cart information after removal
+            Cart removal result with this structure:
+            {
+                "success": true,                     // bool: Operation success
+                "removed_item": {
+                    "item_id": 123,                  // int: Cart item ID that was removed
+                    "sku": "B006H52HBC",             // str: Product SKU that was removed
+                    "name": "Headphones"             // str: Product name that was removed
+                },
+                "cart_totals": {
+                    "items_count": 1,                // int: Number of different items remaining
+                    "items_qty": 3,                  // float: Total quantity remaining
+                    "grand_total": 89.85             // float: TOTAL CART VALUE after removal
+                }
+            }
+            
+            If cart becomes empty after removal:
+            {
+                "success": true,
+                "removed_item": {...},
+                "cart_totals": {
+                    "items_count": 0,
+                    "items_qty": 0,
+                    "grand_total": 0
+                }
+            }
+            
+            Use item_id from get_cart() response to specify which item to remove.
             
         Examples:
             remove_from_cart("emma.lopez@gmail.com", "123")

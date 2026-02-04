@@ -160,7 +160,7 @@ def asi_get_fulfilled_orders_summary(status: str, start_date: str, end_date: str
     )
     
     fulfilled_count = len(orders)
-    total_spent = sum(float(order.get('grand_total', 0)) for order in orders)
+    total_spent = sum(float(order['totals'].get('grand_total', 0)) for order in orders)
     
     return fulfilled_count, total_spent
 

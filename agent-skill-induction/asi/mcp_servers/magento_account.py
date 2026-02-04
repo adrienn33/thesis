@@ -58,7 +58,49 @@ class MagentoAccountServer(MCPServer):
             customer_email: Customer email address
             
         Returns:
-            Customer profile with personal info and addresses
+            Customer account information with this structure:
+            {
+                "customer_id": 123,                  // int: Customer entity ID
+                "email": "emma.lopez@gmail.com",     // str: Customer email address
+                "firstname": "Emma",                 // str: Customer first name
+                "lastname": "Lopez",                 // str: Customer last name
+                "created_at": "2023-01-15T10:30:00", // str: Account creation timestamp
+                "is_active": true,                   // bool: Account status
+                "default_billing_id": 456,          // int|null: Default billing address ID
+                "default_shipping_id": 456,         // int|null: Default shipping address ID
+                "addresses": [                       // list: Customer addresses
+                    {
+                        "address_id": 456,           // int: Address entity ID
+                        "firstname": "Emma",         // str: Address first name
+                        "lastname": "Lopez",         // str: Address last name
+                        "street": "123 Main St",     // str: Street address
+                        "city": "San Francisco",     // str: City
+                        "region": "California",      // str: State/region
+                        "postcode": "94105",         // str: ZIP/postal code
+                        "country_id": "US",          // str: Country code
+                        "telephone": "555-0123",     // str: Phone number
+                        "is_default_billing": true,  // bool: Is default billing address
+                        "is_default_shipping": true, // bool: Is default shipping address
+                        "company": "ABC Corp",       // str|optional: Company name
+                        "prefix": "Ms.",             // str|optional: Name prefix
+                        "middlename": "Marie",       // str|optional: Middle name
+                        "suffix": "Jr.",             // str|optional: Name suffix
+                        "fax": "555-0124"            // str|optional: Fax number
+                    }
+                ],
+                "prefix": "Ms.",                     // str|optional: Customer name prefix
+                "middlename": "Marie",               // str|optional: Customer middle name
+                "suffix": "Jr.",                     // str|optional: Customer name suffix
+                "date_of_birth": "1990-05-15",      // str|optional: Date of birth
+                "gender": "Female"                   // str|optional: "Male", "Female", "Other", "Not Specified"
+            }
+            
+            Or error response:
+            {
+                "error": "Customer not found: invalid@email.com"
+            }
+            
+            Use this to get complete customer profile including all saved addresses.
             
         Examples:
             get_account_info("convexegg@gmail.com")
@@ -201,7 +243,36 @@ class MagentoAccountServer(MCPServer):
             gender: Gender - "male", "female", "other", or "not_specified" (optional)
             
         Returns:
-            Updated customer information
+            Account update result with this structure:
+            {
+                "success": true,                     // bool: Update operation success
+                "customer_id": 123,                  // int: Customer entity ID
+                "updated_fields": [                  // list: Fields that were changed
+                    "firstname",
+                    "lastname"
+                ],
+                "customer_info": {                   // dict: Complete updated customer info
+                    "customer_id": 123,              // Same structure as get_account_info()
+                    "email": "emma.lopez@gmail.com",
+                    "firstname": "Emma",
+                    "lastname": "Lopez-Smith",
+                    "addresses": [...],
+                    ...
+                }
+            }
+            
+            Or error responses:
+            {
+                "error": "Customer not found: invalid@email.com"
+            }
+            {
+                "error": "No fields to update",
+                "customer_id": 123,
+                "email": "emma.lopez@gmail.com"
+            }
+            
+            Only specify fields you want to update. Unspecified fields remain unchanged.
+            Gender values: "male", "female", "other", "not_specified" (case insensitive).
             
         Examples:
             update_account_info("emma.lopez@gmail.com", firstname="Emma", lastname="Lopez-Smith")

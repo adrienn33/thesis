@@ -172,7 +172,29 @@ class MagentoProductServer(MCPServer):
             limit: Maximum number of results (default 200)
             
         Returns:
-            List of products with basic information
+            List of product dictionaries with this structure:
+            [
+                {
+                    "entity_id": 123,                     // int: Product ID
+                    "sku": "B006H52HBC",                  // str: Product SKU
+                    "name": "Sennheiser HD 202 II Professional Headphones", // str: Product name
+                    "price": 29.95,                      // float: Product price
+                    "description": "Professional closed back headphones...", // str: Description
+                    "short_description": "Professional headphones",          // str: Short description
+                    "weight": "1.2000",                  // str: Product weight
+                    "status": 1,                         // int: Product status (1=enabled)
+                    "visibility": 4,                     // int: Visibility setting
+                    "type_id": "simple",                 // str: Product type
+                    "attribute_set_id": 4,               // int: Attribute set
+                    "category_ids": [15, 16],            // list: Associated category IDs
+                    "website_ids": [1],                  // list: Website IDs
+                    "stock_status": 1,                   // int: Stock status (1=in stock)
+                    "qty": 100                           // int: Available quantity
+                }
+            ]
+            
+            Use this for finding products by search criteria. For detailed product info including
+            configurable options (colors, sizes), use get_product_details() with the entity_id.
             
         Examples:
             search_products(sku="B006H52HBC")
@@ -284,7 +306,57 @@ class MagentoProductServer(MCPServer):
             product_id: Product entity ID or SKU
             
         Returns:
-            Detailed product information
+            Detailed product dictionary with this structure:
+            {
+                "entity_id": 123,                     // int: Product ID
+                "sku": "B006H52HBC",                  // str: Product SKU
+                "name": "Sennheiser HD 202 II Professional Headphones", // str: Product name
+                "price": 29.95,                      // float: Product price
+                "description": "Full product description with HTML...", // str: Full description
+                "short_description": "Brief description",              // str: Short description
+                "weight": "1.2000",                  // str: Product weight
+                "status": 1,                         // int: Product status (1=enabled)
+                "visibility": 4,                     // int: Visibility (1=not visible, 2=catalog, 3=search, 4=catalog+search)
+                "type_id": "simple",                 // str: Product type ("simple", "configurable", etc.)
+                "attribute_set_id": 4,               // int: Attribute set ID
+                "category_ids": [15, 16, 22],        // list: Associated category IDs
+                "website_ids": [1],                  // list: Website IDs where product is available
+                "stock_info": {
+                    "is_in_stock": true,             // bool: Stock availability
+                    "qty": 100,                      // int: Available quantity
+                    "manage_stock": true,            // bool: Whether stock is managed
+                    "stock_status": 1                // int: Stock status (1=in stock, 0=out of stock)
+                },
+                "images": [                          // list: Product images
+                    {
+                        "file": "/path/to/image.jpg", // str: Image file path
+                        "position": 1,               // int: Display position
+                        "label": "Front view",       // str: Image label
+                        "disabled": false            // bool: Whether image is disabled
+                    }
+                ],
+                "configurable_options": [            // list: For configurable products only
+                    {
+                        "attribute_id": 93,          // int: Attribute ID (e.g., color)
+                        "label": "Color",            // str: Attribute label
+                        "position": 0,               // int: Display position
+                        "values": [                  // list: Available option values
+                            {
+                                "value_index": 49,   // int: Option value ID
+                                "label": "Black",    // str: Option label
+                                "default": false     // bool: Whether this is default
+                            }
+                        ]
+                    }
+                ],
+                "custom_attributes": {               // dict: Additional product attributes
+                    "manufacturer": "Sennheiser",   // Various custom fields
+                    "country_of_manufacture": "Ireland"
+                }
+            }
+            
+            For simple products, configurable_options will be empty.
+            For configurable products, this shows all color/size/etc. options available.
             
         Examples:
             get_product_details("123")
@@ -398,7 +470,24 @@ class MagentoProductServer(MCPServer):
         """Get all available product categories.
         
         Returns:
-            List of categories with id, name, and parent_id
+            List of category dictionaries with this structure:
+            [
+                {
+                    "entity_id": 15,                 // int: Category ID
+                    "name": "Electronics",           // str: Category name
+                    "parent_id": 2,                  // int: Parent category ID (null for root)
+                    "level": 2,                      // int: Category level in hierarchy
+                    "path": "1/2/15",                // str: Full path from root
+                    "position": 1,                   // int: Sort position
+                    "is_active": 1,                  // int: Active status (1=active, 0=inactive)
+                    "include_in_menu": 1,            // int: Show in menu (1=yes, 0=no)
+                    "children_count": 5,             // int: Number of subcategories
+                    "product_count": 42              // int: Number of products in category
+                }
+            ]
+            
+            Categories are returned in hierarchical order. Use parent_id to build category trees.
+            Root categories have parent_id=1 (the default root category).
             
         Examples:
             list_categories()

@@ -175,7 +175,20 @@ class MagentoReviewServer(MCPServer):
             product_id: Product entity ID or SKU
             
         Returns:
-            List of reviews with review_id, title, detail, nickname, rating, created_at
+            List of review dictionaries with this structure:
+            [
+                {
+                    "review_id": 456,                    // int: Review ID
+                    "title": "Great product!",          // str: Review title
+                    "detail": "I really love this product. It works great...", // str: Review text
+                    "nickname": "John D.",              // str: Reviewer nickname
+                    "rating": 80,                       // int: Rating percentage (0-100)
+                    "created_at": "2023-01-15 10:30:00", // str: Review creation date
+                    "status": 1                         // int: Review status (1=approved)
+                }
+            ]
+            
+            Use this to get all reviews for a product. Filter results in your code if needed.
             
         Examples:
             get_product_reviews("123")
@@ -249,7 +262,24 @@ class MagentoReviewServer(MCPServer):
             rating: Optional rating value (1-5)
             
         Returns:
-            Created review information with review_id
+            Created review information with this structure:
+            {
+                "review_id": 310123,                 // int: Unique review ID
+                "product_id": 789,                   // int: Product entity ID
+                "title": "Great product",            // str: Review title
+                "detail": "I really enjoyed this item", // str: Review detail text
+                "nickname": "JohnDoe",               // str: Reviewer nickname
+                "rating": 5,                         // int|null: Rating value (1-5) or null
+                "status": "created"                  // str: Creation status
+            }
+            
+            Or error response:
+            {
+                "error": "Product not found: InvalidSKU"
+            }
+            
+            The review is automatically approved (status_id=1) and visible immediately.
+            Rating is optional but recommended for better user experience.
             
         Examples:
             create_review("B006H52HBC", "Great product", "I really enjoyed this item", "JohnDoe", 5)
