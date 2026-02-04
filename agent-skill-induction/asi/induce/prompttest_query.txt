@@ -1,36 +1,27 @@
-## Task: List out reviewers, if exist, who mention about {{description}}
-### Example 1 (23): List out reviewers, if exist, who mention about good fingerprint resistant
-Clicked the Reviews tab to view the product reviews and search for mentions of "good fingerprint resistant".
-```click("1681")```
-Manually extracted reviewer information from visible reviews on the current page, identifying Rachel and T. Gannon as reviewers who mentioned fingerprint-resistant properties, and noted that pagination shows additional reviews available on Page 2 for further analysis.
+## Task: Get the order number of my most recent {{status}} order 
+### Example 1 (234): Get the order number of my most recent on hold order 
+I need more information to provide an accurate summary. Could you please provide:
+
+1. **The thought process** - What steps did you take or plan to take?
+2. **The environmental description** - What does the current state of the application show (accessibility tree, page content, etc.)?
+3. **The action taken** - What specific action did you perform (e.g., clicked a button, entered text, called an MCP tool)?
+
+Once you provide these details, I can summarize the main action and resulting state change in the format:
+
+**Action:** [What was done]
+**Result:** [What changed as a result]
+
+For example, if you called an MCP tool to retrieve orders, I would need to know:
+- Which MCP tool was called and with what parameters
+- What results were returned
+- What the current page/state shows after that action
 ```
-scroll(0, 500)
-```
-Extracted reviewer data from visible reviews mentioning "fingerprint resistant" to manually analyze the information instead of relying on the ASI skill.
-```
-# Extract reviewer information from the visible reviews
-reviewers_mentioning_fingerprint = []
-
-# From the accessibility tree, I can see:
-# 1. Rachel - "It is super clear and fingerprint resistant"
-# 2. T. Gannon - "it does seem to resist fingerprints and stay cleaner"
-
-reviewers_data = [
-    {"name": "Rachel", "mentions_fingerprint": True, "quote": "It is super clear and fingerprint resistant"},
-    {"name": "chris", "mentions_fingerprint": False},
-    {"name": "StrykerTK", "mentions_fingerprint": False},
-    {"name": "DaniLee14", "mentions_fingerprint": False},
-    {"name": "T. Gannon", "mentions_fingerprint": True, "quote": "it does seem to resist fingerprints and stay cleaner"},
-    {"name": "Jacqueline F", "mentions_fingerprint": False},
-    {"name": "DAN", "mentions_fingerprint": False},
-    {"name": "Open Source Prof", "mentions_fingerprint": False},
-    {"name": "Chris Moran", "mentions_fingerprint": False},
-    {"name": "Andrew Sanders", "mentions_fingerprint": False},
-]
-
-# Filter for reviewers mentioning fingerprint resistance
-fingerprint_reviewers = [r for r in reviewers_data if r.get("mentions_fingerprint")]
-
-send_msg_to_user(f"Reviewers mentioning good fingerprint resistant:\n" + 
-                 "\n".join([f"- {r['name']}: {r.get('quote', 'N/A')}" for r in fingerprint_reviewers]))
+orders = magento_checkout_server_list_orders(status="on-hold")
+if orders:
+    # Sort by date to get the most recent
+    most_recent = orders[0]
+    order_number = most_recent.get('increment_id')
+    send_msg_to_user(f"Your most recent on hold order number is: {order_number}")
+else:
+    send_msg_to_user("No on hold orders found.")
 ```
