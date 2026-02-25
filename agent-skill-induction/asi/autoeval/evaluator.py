@@ -1,20 +1,18 @@
 import os
 import json
-from autoeval.prompts import *
+from autoeval.prompts import build_text_eval_prompt, build_vision_eval_prompt, extract_content
 
 
 class Evaluator:
-    def __init__(self, lm_clients, log_save_path=None):
-        self.lm_clients = lm_clients
+    def __init__(self, lm_client, log_save_path=None):
+        self.lm_client = lm_client
         self.log_save_path = log_save_path
 
-    def __call__(self, info, client="gpt-3.5", version="naive"):
-        assert (client in self.lm_clients), \
-            f"Client {client} not found in {self.lm_clients.keys()}"
+    def __call__(self, info, version):
         if version == "text":
-            eval_info, eval_str, prompt = self.eval_text(info, client)
+            eval_info, eval_str, prompt = self.eval_text(info)
         elif version == "vision":
-            eval_info, eval_str, prompt = self.eval_vision(info, client)
+            eval_info, eval_str, prompt = self.eval_vision(info)
         else:
             raise NotImplementedError(f"Version {version} not implemented")
 
@@ -52,34 +50,33 @@ class Evaluator:
                     md_file.write(f"```md\n{prompt}\n```\n")
         return eval_info, prompt
 
-    def eval_text(self, info, client):
+    def eval_text(self, info):
         response = info["response"] if info["response"] else "None"
-        lm_client = self.lm_clients[client]
         action_history = ""
         for idx, act in enumerate(info["actions"]):
             action_history += f"{idx+1}: {act}\n"
         prompt, sys_msg = build_text_eval_prompt(
             info["captions"][-1], info["intent"], response, action_history
         )
-        msg_str, _ = lm_client.one_step_chat(prompt, system_msg=sys_msg)
+        msg_str, _ = self.lm_client.one_step_chat(prompt, system_msg=sys_msg)
         msg_dict = {
             "thoughts": extract_content(msg_str, "Thoughts:"),
             "status": extract_content(msg_str, "Status:").replace('"', ""),
         }
         return msg_dict, msg_str, prompt
 
-    def eval_vision(self, info, client):
-        assert client.startswith("gpt-4v") or client.startswith("gpt-4o") or client.startswith("claude")
+    def eval_vision(self, info):
         action_history = ""
         for idx, act in enumerate(info["actions"]):
             action_history += f"{idx+1}: {act}\n"
         prompt, sys_msg = build_vision_eval_prompt(
             info["intent"], info["response"], action_history
         )
+
+        # browser state at final step in trajectory
         img = info["images"][-1]
-        
-        lm_client = self.lm_clients[client]
-        msg_str, _ = lm_client.one_step_chat(
+
+        msg_str, _ = self.lm_client.one_step_chat(
             text=prompt, image=img, system_msg=sys_msg
         )
         del info["images"]

@@ -9,6 +9,12 @@ import io
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 
+class EvalClient:
+    def __new__(cls, model_name: str, modality: str = "vision"):
+        if modality == "vision":
+            return Claude_Vision_Client(model_name=model_name)
+        return LM_Client(model_name=model_name)
+
 class LM_Client:
     def __init__(self, model_name: str = "claude-haiku-4-5") -> None:
         self.model_name = model_name
@@ -138,13 +144,3 @@ class Claude_Vision_Client:
                         continue
                 raise e
         return response.content[0].text, response
-
-
-CLIENT_DICT = {
-    "claude-haiku-4-5": LM_Client,
-    "claude-3-5-sonnet-20241022": Claude_Vision_Client,
-    "gpt-3.5-turbo": LM_Client,
-    "gpt-4": LM_Client,
-    "gpt-4o": Claude_Vision_Client,  # Using Claude vision for GPT-4o requests
-    "gpt-4o-2024-05-13": Claude_Vision_Client,  # Using Claude vision for GPT-4o requests
-}

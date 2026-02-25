@@ -406,7 +406,7 @@ if __name__ == "__main__":
     parser.add_argument("--write_action_path", type=str, default=None)
     parser.add_argument("--write_tests_dir", type=str, default="debug_actions")
     parser.add_argument("--eval_with_gold", action="store_true", help="If perform evaluation with ground-truth.")
-    parser.add_argument("--autoeval_model", type=str, default="claude-3-5-sonnet-20241022",
+    parser.add_argument("--autoeval_model", type=str, default="claude-haiku-4-5",
                         help="Model used by autoeval.evaluate_trajectory; must match the JSON filename (e.g. <model>_autoeval.json).")
     parser.add_argument("--mcp_enabled", type=str, choices=["true", "false"], default="false", help="Whether MCP tools are enabled for this experiment")
     args = parser.parse_args()

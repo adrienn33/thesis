@@ -3,7 +3,7 @@ import json
 import argparse
 import traceback
 from autoeval.evaluator import Evaluator
-from autoeval.clients import CLIENT_DICT
+from autoeval.clients import EvalClient
 
 
 def load_blocks(path: str) -> list[str]:
@@ -79,13 +79,11 @@ def process_sample(
     idx: str, traj_info: dict, log_save_path,
     model: str, eval_version: str,
 ) -> list[dict]:
-    clients = {model: CLIENT_DICT[model](model_name=model)}
-    evaluator = Evaluator(clients, log_save_path=log_save_path + "/trajs")
+    client = EvalClient(model_name=model, modality=eval_version)
+    evaluator = Evaluator(client, log_save_path=log_save_path + "/trajs")
     try:
-        out, _ = evaluator(traj_info, model, eval_version)
-        eval_result = None
-        if out["status"].lower() == "success": eval_result = True
-        else: eval_result = False
+        out, _ = evaluator(traj_info, eval_version)
+        eval_result = out["status"].lower() == "success"
         return [{
                 "idx": idx,
                 "gt": traj_info["eval"],
@@ -172,16 +170,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--result_dir", type=str, required=True,
                         help="Path to the result directory, e.g., 'webarena.0'.")
-    # autoeval
-    parser.add_argument("--model", type=str, default="claude-3-5-sonnet-20241022",
-                        choices=["claude-haiku-4-5", "claude-3-5-sonnet-20241022", "gpt-4o", "gpt-4o-2024-05-13"])
+    parser.add_argument("--model", type=str, default="claude-haiku-4-5",
+                        choices=["claude-haiku-4-5"])
     parser.add_argument("--prompt", type=str, default="vision",
                         choices=["text", "vision"])
 
     args = parser.parse_args()
-
-    if args.model == "gpt-4o" and args.prompt != "vision":
-        print(f"Waring: use vision prompt by default for {args.model}.")
-        args.prompt = "vision"
 
     main()
