@@ -1,24 +1,16 @@
 ## Task: Get the order number of my most recent {{status}} order 
-### Example 1 (234): Get the order number of my most recent on hold order 
-I need more information to provide an accurate summary. Could you please share:
-
-1. **The thought process** - What steps did you take or plan to take?
-2. **The environmental description** - What does the current state of the application show (accessibility tree, available options, etc.)?
-3. **The action taken** - What button/link did you click or what MCP tool did you execute?
-
-Once you provide these details, I can summarize the main action and resulting state change.
-
-For example, if you executed an MCP tool call, please share:
-- Which tool was called (e.g., `get_orders`, `filter_orders`, etc.)
-- What parameters were used
-- What the response showed
-```
-orders = magento_checkout_server_list_orders(status="on hold")
-if orders:
-    # Sort by date to get the most recent
-    most_recent = orders[0]  # Assuming the API returns them in reverse chronological order
-    order_number = most_recent.get('increment_id')
-    send_msg_to_user(f"The order number of your most recent on hold order is: {order_number}")
-else:
-    send_msg_to_user("You do not have any on hold orders.")
-```
+### Example 1 (233): Get the order number of my most recent complete order 
+Clicked on "My Account" to access the account menu and navigate to order history.
+```click('227')```
+Scrolled down on the "My Account" page to view additional orders in the Recent Orders table and verify if there are any more recent completed orders beyond the ones currently visible.
+```scroll(0, 300)```
+Clicked "View All" to access the complete order history and verify all completed orders.
+```click('1492')```
+Navigated to Page 2 of the My Orders table to check for more recent complete orders among the remaining 27 orders.
+```click('1568')```
+Navigated back to page 1 of the order history to confirm the most recent complete order (Order 000000180 from 3/11/23).
+```click('1568')```
+Navigated back to page 1 of the "My Orders" section to confirm that Order 000000180 (dated 3/11/23) is the most recent complete order.
+```click('1564')```
+Identified the most recent complete order as Order 000000180 dated 3/11/23 by reviewing the order history on page 1.
+```send_msg_to_user("The order number of your most recent complete order is 000000180 (dated 3/11/23).")```
