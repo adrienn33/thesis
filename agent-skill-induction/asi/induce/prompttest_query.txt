@@ -1,16 +1,18 @@
-## Task: Get the order number of my most recent {{status}} order 
-### Example 1 (233): Get the order number of my most recent complete order 
-Clicked on "My Account" to access the account menu and navigate to order history.
-```click('227')```
-Scrolled down on the "My Account" page to view additional orders in the Recent Orders table and verify if there are any more recent completed orders beyond the ones currently visible.
+## Task: List out reviewers, if exist, who mention about {{description}}
+### Example 1 (23): List out reviewers, if exist, who mention about good fingerprint resistant
+Clicked on the "Reviews (12)" tab to view the product reviews and search for mentions of "good fingerprint resistant".
+```click('1627')```
+Analyzed the visible reviews on page 1 of the Reviews tab and identified reviews mentioning fingerprint resistance (Rachel's "fingerprint resistant" and T. Gannon's "resist fingerprints"). Noted that there are 2 pages of reviews total and plan to scroll down to see remaining reviews on page 1 before checking page 2.
 ```scroll(0, 300)```
-Clicked "View All" to access the complete order history and verify all completed orders.
-```click('1492')```
-Navigated to Page 2 of the My Orders table to check for more recent complete orders among the remaining 27 orders.
-```click('1568')```
-Navigated back to page 1 of the order history to confirm the most recent complete order (Order 000000180 from 3/11/23).
-```click('1568')```
-Navigated back to page 1 of the "My Orders" section to confirm that Order 000000180 (dated 3/11/23) is the most recent complete order.
-```click('1564')```
-Identified the most recent complete order as Order 000000180 dated 3/11/23 by reviewing the order history on page 1.
-```send_msg_to_user("The order number of your most recent complete order is 000000180 (dated 3/11/23).")```
+Clicked on page 2 of the reviews to identify additional reviewers mentioning fingerprint resistance.
+```click('2020')```
+Clicked on page 1 of the Reviews tab to view the first set of reviews and search for mentions of "good fingerprint resistant" in customer reviews.
+```click('2115')```
+Analyzed the current page reviews and identified 2 reviewers (Rachel and T. Gannon) who mention fingerprint resistance. Now navigating to page 2 to check for additional reviewers with similar feedback.
+```click('2378')```
+Clicked on page 1 to review all customer reviews and verify which reviewers mention "good fingerprint resistant" in their reviews.
+```click('2473')```
+Analyzed page 1 reviews and identified 2 reviewers mentioning fingerprint resistance (Rachel and T. Gannon). Navigating to page 2 to continue searching for all reviewers with fingerprint resistance mentions.
+```click('2736')```
+Compiled the final results from reviews pages 1 and 2, identifying 2 reviews that mention fingerprint resistance (by Rachel and T. Gannon) and prepared to send the summary to the user.
+```send_msg_to_user("Based on my review of all 12 customer reviews across both pages, the following reviewers mention good fingerprint resistant properties:\n\n1. **Rachel** - Mentioned: 'It is super clear and fingerprint resistant...'\n2. **T. Gannon** - Mentioned: 'it does seem to resist fingerprints and stay cleaner'")```

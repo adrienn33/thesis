@@ -153,7 +153,12 @@ def run_asi():
             generate_research_metrics(tid, args.website, task_index, asi_enabled=True, mcp_enabled=True, skill_induction_attempted=False)
             continue
 
-        # step 2: eval traj (COMMENTED OUT - evaluator is unreliable)
+        # step 2: eval traj
+        # This section introduces a bug where a LLM may decide that a trajectory has failed
+        # regardless of if reward was acheived.
+        # We have opted to remove this step from the pipeline in favor of validating
+        # against ground truth
+
         # process = Popen([
         #     "python3", "-m", "autoeval.evaluate_trajectory",
         #     "--result_dir", f"results/webarena.{tid}",
@@ -237,11 +242,9 @@ def run_vanilla_asi():
         cmd = [
             "venv/bin/python3", "run_demo.py",
             "--task_name", f"webarena.{tid}",
+            "--websites", args.website,
             "--headless"
         ]
-        
-        # VANILLA+ASI: No MCP config at all - pure ASI without tools
-        # Don't add any --mcp_config parameter
         
         process = Popen(cmd)
         try:

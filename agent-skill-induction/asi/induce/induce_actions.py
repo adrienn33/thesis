@@ -338,17 +338,6 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         print(f"Process timed out after {e.timeout} seconds.")
         print(stderr)
         return True  # revert
-    # try:
-    #     process = subprocess.Popen(["bash", test_script_path])
-    #     process.wait()
-    # except Exception as e:
-    #     print(e)
-
-    # ================================================================
-    # EVALUATION STEP COMMENTED OUT TO PREVENT INCORRECT REVERSIONS
-    # The LLM-based evaluator was incorrectly marking valid solutions as failures,
-    # causing good induced actions to be reverted. This disables that check.
-    # ================================================================
     
     # check test results
     scores = []
@@ -362,11 +351,12 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         else:
             process = subprocess.Popen([
                 "python", "-m", "autoeval.evaluate_trajectory",
-                "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test")
+                "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test"),
+                "--model", args.autoeval_model,
             ])
             process.wait()
 
-            eval_path = os.path.join(args.results_dir, f"webarena.{r}_test", "gpt-4o-2024-05-13_autoeval.json")
+            eval_path = os.path.join(args.results_dir, f"webarena.{r}_test", f"{args.autoeval_model}_autoeval.json")
             if os.path.exists(eval_path):
                 scores.append(json.load(open(eval_path))[0]["rm"] == True)
             else:
@@ -387,16 +377,11 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         if scores[-1] == False: break
     
     print("Scores: ", scores)
-    # if all([s == True for s in scores]):
-    #     print("All Tests Passed!")
-    #     return False
-    # else:
-    #     return True
-
-    # EVALUATION DISABLED - Always accept induced actions that run successfully
-    print("EVALUATION STEP BYPASSED - Accepting all induced actions that execute without errors")
-    return False  # Don't revert - keep the induced actions
-
+    if all([s == True for s in scores]):
+        print("All Tests Passed!")
+        return False
+    else:
+        return True
 
 # %% Overall pipeline
 
@@ -421,6 +406,8 @@ if __name__ == "__main__":
     parser.add_argument("--write_action_path", type=str, default=None)
     parser.add_argument("--write_tests_dir", type=str, default="debug_actions")
     parser.add_argument("--eval_with_gold", action="store_true", help="If perform evaluation with ground-truth.")
+    parser.add_argument("--autoeval_model", type=str, default="claude-3-5-sonnet-20241022",
+                        help="Model used by autoeval.evaluate_trajectory; must match the JSON filename (e.g. <model>_autoeval.json).")
     parser.add_argument("--mcp_enabled", type=str, choices=["true", "false"], default="false", help="Whether MCP tools are enabled for this experiment")
     args = parser.parse_args()
     
