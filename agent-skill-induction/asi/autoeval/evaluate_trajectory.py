@@ -49,7 +49,7 @@ def extract_code_pieces(text: str) -> list[str]:
     code_pieces = []
     while "```" in text:
         st_idx = text.index("```") + len("```")
-        # end_idx = text.index("```", st_idx)
+
         if "```" in text[st_idx:]:
             end_idx = text.index("```", st_idx + 1)
         else: 
@@ -114,7 +114,7 @@ def main():
     # load trajectory log
     log_path = os.path.join(args.result_dir, "experiment.log")
     think_list, action_list = extract_think_and_action(log_path)
-    # actions = [act for acts in action_list for act in acts]
+
     if "send_msg_to_user" in action_list[-1]:
         response = extract_response(action_list[-1])
     else:
@@ -151,7 +151,6 @@ def main():
         "eval": summary["cum_reward"]
     }
 
-    # evaluate trajectory
     log_save_path = os.path.join("autoeval/log", args.result_dir.split('/')[-1])
     print("Log Save Path:", log_save_path)
     if not os.path.exists(log_save_path):

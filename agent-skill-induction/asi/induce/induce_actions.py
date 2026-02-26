@@ -383,8 +383,6 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
     else:
         return True
 
-# %% Overall pipeline
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="claude", choices=["gpt-4o", "claude"])
