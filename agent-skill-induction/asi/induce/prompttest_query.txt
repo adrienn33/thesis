@@ -1,14 +1,10 @@
-## Task: Get the order number of my most recent {{status}} order 
-### Example 1 (234): Get the order number of my most recent on hold order 
-Clicked on "My Account" to access the account page and view orders.
-```click('227')```
-Clicked the "View All" link to access the complete orders list and search for orders with "On Hold" status.
-```click('1492')```
-Clicked on Page 2 to view additional orders and search for orders with "On Hold" status.
-```click('1568')```
-Navigated to page 3 of the orders list to continue searching for an order with "On Hold" status.
-```click('1576')```
-Navigated to page 4 of the orders list to view the remaining 7 orders (items 31-37) and locate the order with "On Hold" status.
-```click('1580')```
-Completed review of all 37 orders across 4 pages and confirmed that no orders with "On Hold" status exist in the system. Only Canceled, Complete, and Pending statuses were found.
-```send_msg_to_user("I have reviewed all 37 orders in your order history across all 4 pages, and there are no orders with an 'On Hold' status. The available order statuses in your account are: Canceled, Complete, and Pending. Therefore, there is no most recent 'on hold' order to retrieve.")```
+## Task: List out reviewers, if exist, who mention about {{description}}
+### Example 1 (24): List out reviewers, if exist, who mention about price being unfair
+Clicked the Reviews tab to view the 2 available reviews for the HAFLINGER Men's Wool Felt Open Back Slippers product.
+```click('1633')```
+Scrolled down in the Reviews section to look for additional reviews that might contain complaints about unfair pricing.
+```scroll(0, 300)```
+Scrolled down on the Reviews tab to check for additional review content or price-related comments below the currently visible reviews.
+```scroll(0, 300)```
+Reviewed all available product reviews (2 total) and confirmed that neither review mentions pricing or unfair pricing concerns.
+```send_msg_to_user("Based on my review of all 2 customer reviews for the HAFLINGER Men's Wool Felt Open Back Slippers, there are NO reviewers who mention about price being unfair. The two reviews available are: (1) Jay's review praising the product for everyday use, and (2) Josef Bürger's review stating the product is as described and expected. Neither review contains any complaints or mentions regarding unfair pricing.")```
