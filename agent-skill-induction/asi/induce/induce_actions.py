@@ -136,28 +136,25 @@ def induce_actions() -> list[str] | None:
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
     messages += [{"role": "user", "content": open(instruction_path).read()}]
     messages += [{"role": "user", "content": open(args.few_shot_path).read()}]
-    messages += [{"role": "user", "content": f"""## ⚠️ CRITICAL: EXISTING SKILLS - DO NOT DUPLICATE
+    messages += [{"role": "user", "content": f"""## EXISTING SKILLS - DO NOT DUPLICATE
 
-The following skills have ALREADY been learned and implemented. You MUST NOT create new functions with these names or similar functionality.
+The following skills have already been learned and implemented. You MUST NOT create new functions with these names or similar functionality.
 
-**EXISTING SKILL NAMES (FORBIDDEN TO RECREATE):**
+EXISTING SKILL NAMES (FORBIDDEN TO RECREATE):
 {existing_names_list}
 
-**Existing Function Signatures:**
+Existing Function Signatures:
 ```python
 {existing_funcs_summary}
 ```
 
-🚨 **IMPORTANT RULES:**
-1. You MUST ONLY propose NEW skills that don't already exist
-2. Check the existing names list above - if a skill name already exists, DO NOT recreate it
-3. Look for similar functionality in existing skills - don't duplicate similar behavior with different names
-4. Focus on identifying genuinely NOVEL patterns that aren't covered by existing skills
+IMPORTANT RULES:
+1. You MUST ONLY propose NEW skills that do not already exist.
+2. Check the existing names list above - if a skill name already exists, DO NOT recreate it.
+3. Look for similar functionality in existing skills - do not duplicate similar behavior with different names.
+4. Focus on identifying genuinely novel patterns that are not covered by existing skills.
 
-✅ **WHAT TO DO:**
-- Only propose skills that solve completely new problems not addressed by existing skills
-- Use descriptive names that are clearly different from existing ones
-- If you cannot identify novel skills, it's better to propose NO new skills than duplicate existing ones"""}]
+If you cannot identify novel skills, it is better to propose NO new skills than to duplicate existing ones. Only propose skills that solve completely new problems not addressed by existing skills, and use descriptive names that are clearly different from existing ones."""}]
     messages += [{"role": "user", "content": test_query + '\n\n## Reusable Functions'}]
 
     all_responses = []
@@ -244,7 +241,7 @@ def write_actions(response: str) -> tuple[str, list[str]]:
             print(f"ACCEPTED: New skill(s) {all_names_in_action}")
 
     if duplicates_found:
-        print(f"\n❌ REJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
+        print(f"\nREJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
         print(f"   These functions already exist in {args.write_action_path}")
     
     print(
