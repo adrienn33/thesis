@@ -108,7 +108,10 @@ def main():
     task_id = args.result_dir.split('/')[-1].split(".")[1]
     if '_' in task_id:
         task_id = task_id.split('_')[0]
-    config_path = os.path.join("config_files", f"{task_id}.json")
+    if args.mcp_enabled:
+        config_path = os.path.join("config_files", f"{task_id}-mcp-container.json")
+    else:
+        config_path = os.path.join("config_files", f"{task_id}.json")
     config = json.load(open(config_path))
 
     # load trajectory log
@@ -169,10 +172,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--result_dir", type=str, required=True,
                         help="Path to the result directory, e.g., 'webarena.0'.")
-    parser.add_argument("--model", type=str, default="claude-haiku-4-5",
-                        choices=["claude-haiku-4-5"])
+    parser.add_argument("--model", type=str, default="claude-sonnet-4-6",
+                        choices=["claude-haiku-4-5", "claude-sonnet-4-6"])
     parser.add_argument("--prompt", type=str, default="vision",
                         choices=["text", "vision"])
+    parser.add_argument("--mcp_enabled", action=argparse.BooleanOptionalAction, default=False,
+                        help="Load MCP container config ({task_id}-mcp-container.json) instead of the plain config.")
 
     args = parser.parse_args()
 

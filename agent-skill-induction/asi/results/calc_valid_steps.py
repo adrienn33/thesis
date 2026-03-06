@@ -48,7 +48,8 @@ def has_mcp_tool_calls(step_info) -> bool:
     last_action = step_info.obs["last_action"]
     return ('magento_review_server' in last_action or 
             'magento_product_server' in last_action or
-            '_mcp_tool' in last_action)
+            '_mcp_tool' in last_action or
+            'asi_' in last_action)  # induced ASI skills wrap MCP calls
 
 
 SIMPLIFY_THOUGHT_INSTRUCTION = """You are a helpful assistant in summarizing web browsing actions. Your task is to summarize the main action taken and the corresponding state change, from the input thought process and environmental description. 

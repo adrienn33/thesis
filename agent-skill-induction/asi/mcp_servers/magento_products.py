@@ -161,11 +161,18 @@ class MagentoProductServer(MCPServer):
                              min_price: Optional[str] = None, max_price: Optional[str] = None,
                              limit: str = "200") -> List[Dict]:
         """Search for products by SKU, product name, description, category, and/or price range.
-        
+
+        WARNING: All text parameters (name, description) use FUZZY/PARTIAL matching via SQL LIKE.
+        Results may include products that merely mention the search term in their name or description,
+        not just products from that brand or category. You MUST verify each result is actually
+        relevant — e.g. when searching for brand-specific products, filter results to only those
+        whose name starts with or prominently features the brand name before computing aggregates
+        like price range, count, or average.
+
         Args:
             sku: Product SKU (exact or partial match)
-            name: Product name (partial match)
-            description: Product description text (partial match)
+            name: Product name (partial match, fuzzy — see warning above)
+            description: Product description text (partial match, fuzzy — see warning above)
             category: Category name or ID
             min_price: Minimum price
             max_price: Maximum price

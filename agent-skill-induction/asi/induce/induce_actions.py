@@ -300,8 +300,7 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         else:
             config_file = f"config_files/{task_id}.json"
         script_content.append(
-            # f"python run_demo.py --websites {args.website} --headless "
-            f"python run_demo.py --websites {args.website} --headless "
+            f"venv/bin/python3 run_demo.py --websites {args.website} --headless "
             f"--task_name webarena.{task_id} "
             f"--action_path {test_path} "
             f"--mcp_config {config_file} "
@@ -344,10 +343,12 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
                 reason = f"[gold] summary_info.json not found at {eval_path}"
                 print(f"[EVAL] Task {r} gold eval: FAIL — {reason}")
         else:
+            mcp_flag = "--mcp_enabled" if is_mcp_enabled else "--no-mcp_enabled"
             process = subprocess.Popen([
-                "python", "-m", "autoeval.evaluate_trajectory",
+                "venv/bin/python3", "-m", "autoeval.evaluate_trajectory",
                 "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test"),
                 "--model", args.autoeval_model,
+                mcp_flag,
             ])
             process.wait()
 
@@ -355,11 +356,10 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
             if os.path.exists(eval_path):
                 eval_data = json.load(open(eval_path))[0]
                 rm = eval_data.get("rm")
-                thoughts = eval_data.get('thoughts', '(no thoughts recorded)')
                 passed = rm == True
                 scores.append(passed)
                 print(f"[EVAL] Task {r} autoeval ({args.autoeval_model}): rm={rm} → {'PASS' if passed else 'FAIL'}")
-                print(f"[EVAL] LLM reasoning:\n{thoughts}")
+                print(f"[EVAL] Full autoeval response:\n{json.dumps(eval_data, indent=2)}")
                 if not passed:
                     reason = f"[autoeval] rm={rm}"
             else:
@@ -369,7 +369,7 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
 
         # check step valid and use actions
         command = [
-            "python", "-m", "results.calc_valid_steps",
+            "venv/bin/python3", "-m", "results.calc_valid_steps",
             "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test"),
             "--action_names"] + action_names
         process = subprocess.Popen(command, stdout=subprocess.PIPE)
@@ -399,7 +399,7 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="claude-haiku-4-5",
+    parser.add_argument("--model", type=str, default="claude-sonnet-4-6",
                         help="Anthropic model for skill induction.")
     parser.add_argument("--num_responses", type=int, default=1, help="Number of responses to generate.")
     parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling.")
@@ -418,8 +418,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--write_action_path", type=str, default=None)
     parser.add_argument("--write_tests_dir", type=str, default="debug_actions")
-    parser.add_argument("--eval_with_gold", action="store_true", help="If perform evaluation with ground-truth.")
-    parser.add_argument("--autoeval_model", type=str, default="claude-haiku-4-5",
+    parser.add_argument("--eval_with_gold", action=argparse.BooleanOptionalAction, default=False,
+                        help="Evaluate with ground-truth cum_reward (--eval_with_gold / --no-eval_with_gold). Default: False (uses LLM autoeval).")
+    parser.add_argument("--autoeval_model", type=str, default="claude-sonnet-4-6",
                         help="Model used by autoeval.evaluate_trajectory; must match the JSON filename (e.g. <model>_autoeval.json).")
     parser.add_argument("--mcp_enabled", action=argparse.BooleanOptionalAction, default=False,
                         help="Whether MCP tools are enabled for this experiment (--mcp_enabled / --no-mcp_enabled)")

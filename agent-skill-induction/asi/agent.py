@@ -214,11 +214,19 @@ def {func_name}({param_str}):
     2. **ASI skills** (prefixed with asi_) are reusable and tested compound actions
     3. **Browser actions** should only be used as a last resort{available_skills}
 
-    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names."""
+    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names.
+
+    IMPORTANT - Semantic review search: When searching reviews for a topic (e.g. "small size", "battery life", "poor quality"), do NOT search for only the literal phrase. Reviewers express the same idea in many ways. You MUST expand the search to include synonyms, related phrases, and common alternative wordings. For example:
+    - "small" → ["small", "tiny", "compact", "narrow", "tight", "little", "miniature", "slim", "thin", "petite"]
+    - "battery life" → ["battery", "battery life", "charge", "charging", "run time", "dies quickly", "drains fast"]
+    - "poor quality" → ["poor quality", "cheap", "flimsy", "low quality", "poorly made", "bad quality", "disappointing"]
+    Always pass a broad list of synonyms/related terms as the keywords argument to ensure no relevant reviews are missed."""
         else:
             return f"""IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions.{available_skills}
 
-    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names. If no suitable ASI skill exists, use browser actions."""
+    IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names. If no suitable ASI skill exists, use browser actions.
+
+    IMPORTANT - Semantic review search: When searching reviews for a topic (e.g. "small size", "battery life", "poor quality"), do NOT search for only the literal phrase. Reviewers express the same idea in many ways. You MUST expand the search to include synonyms, related phrases, and common alternative wordings. Always pass a broad list of synonyms/related terms as the keywords argument to ensure no relevant reviews are missed."""
 
     def get_action(self, obs: dict) -> tuple[str, dict]:
         if len(self.actions) == 0 or (self.num_actions > (len(self.actions) - 1)):

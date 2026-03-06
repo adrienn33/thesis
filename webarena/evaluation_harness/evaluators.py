@@ -127,14 +127,29 @@ class StringEvaluator(Evaluator):
         page: Page | PseudoPage | None = None,
         client: CDPSession | None = None,
     ) -> float:
+        import logging
+        logger = logging.getLogger(__name__)
+        
         with open(config_file, "r") as f:
             configs = json.load(f)
 
+        logger.info(f"STRING_EVALUATOR: Starting evaluation for config: {config_file}")
+        logger.info(f"STRING_EVALUATOR: Trajectory has {len(trajectory)} actions")
+        
         last_action = self.get_last_action(trajectory)
+        logger.info(f"STRING_EVALUATOR: Last action extracted: {last_action}")
+        
         pred = self.clean_answer(last_action["answer"])
+        logger.info(f"STRING_EVALUATOR: Cleaned prediction: '{pred}'")
+        
+        reference_answers = configs["eval"]["reference_answers"]
+        logger.info(f"STRING_EVALUATOR: Reference answers: {reference_answers}")
 
         score = 1.0
-        for approach, value in configs["eval"]["reference_answers"].items():
+        logger.info(f"STRING_EVALUATOR: Starting with score: {score}")
+        
+        for approach, value in reference_answers.items():
+            logger.info(f"STRING_EVALUATOR: Processing approach '{approach}' with value: {value}")
             match approach:
                 case "exact_match":
                     score *= self.exact_match(ref=value, pred=pred)
@@ -148,24 +163,38 @@ class StringEvaluator(Evaluator):
                             tokenize=(len(value) == 1),
                         )
                 case "fuzzy_match":
-                    import logging
-                    logger = logging.getLogger(__name__)
                     logger.info(f"STRING_EVALUATOR: Starting fuzzy_match evaluation")
+                    logger.info(f"STRING_EVALUATOR: fuzzy_match value: '{value}'")
                     
                     intent = configs["intent"]
+                    logger.info(f"STRING_EVALUATOR: Intent: '{intent}'")
+                    
                     if value == "N/A":
-                        logger.info(f"STRING_EVALUATOR: fuzzy_match with N/A value - using exact/ua_match")
-                        # if the instruction only asks the model to generate N/A when encountering an unachievable task
-                        # without more concrete reasons
-                        score *= self.exact_match(ref=value, pred=pred)
-                        # if the instruction also asks the model to generate the reason why the task is unachievable
-                        # this should be the default as it will prevent false positive N/A`
+                        logger.info(f"STRING_EVALUATOR: fuzzy_match with N/A value - using exact/ua_match path")
+                        logger.info(f"STRING_EVALUATOR: Score before exact_match: {score}")
+                        
+                        # First try exact match
+                        exact_score = self.exact_match(ref=value, pred=pred)
+                        logger.info(f"STRING_EVALUATOR: exact_match('N/A', '{pred}') = {exact_score}")
+                        score *= exact_score
+                        logger.info(f"STRING_EVALUATOR: Score after exact_match: {score}")
+                        
+                        # If exact match failed, try ua_match with string_note
                         if score != 1:
-                            score = 1.0 * self.ua_match(
-                                intent=configs["intent"],
-                                ref=configs["eval"]["string_note"],
+                            logger.info(f"STRING_EVALUATOR: Exact match failed, trying ua_match")
+                            string_note = configs["eval"].get("string_note", "")
+                            logger.info(f"STRING_EVALUATOR: string_note: '{string_note}'")
+                            
+                            ua_score = self.ua_match(
+                                intent=intent,
+                                ref=string_note,
                                 pred=pred,
                             )
+                            logger.info(f"STRING_EVALUATOR: ua_match('{string_note}', '{pred}') = {ua_score}")
+                            score = 1.0 * ua_score
+                            logger.info(f"STRING_EVALUATOR: Final score after ua_match: {score}")
+                        else:
+                            logger.info(f"STRING_EVALUATOR: Exact match succeeded, skipping ua_match")
                     else:
                         assert isinstance(value, list)
                         logger.info(f"STRING_EVALUATOR: fuzzy_match with {len(value)} references: {value}")
@@ -362,30 +391,53 @@ class EvaluatorComb:
         page: Page | PseudoPage,
         client: CDPSession,
     ) -> float:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"EVALUATOR_COMB: Starting evaluation with {len(self.evaluators)} evaluators")
+        logger.info(f"EVALUATOR_COMB: Trajectory length: {len(trajectory)}")
+        
         score = 1.0
-        for evaluator in self.evaluators:
+        for i, evaluator in enumerate(self.evaluators):
+            logger.info(f"EVALUATOR_COMB: Running evaluator {i+1}/{len(self.evaluators)}: {type(evaluator).__name__}")
             cur_score = evaluator(trajectory, config_file, page, client)
+            logger.info(f"EVALUATOR_COMB: Evaluator {i+1} returned score: {cur_score}")
             score *= cur_score
+            logger.info(f"EVALUATOR_COMB: Cumulative score after evaluator {i+1}: {score}")
+            
+        logger.info(f"EVALUATOR_COMB: Final score: {score}")
         return score
 
 
 @beartype
 def evaluator_router(config_file: Path | str) -> EvaluatorComb:
     """Router to get the evaluator class"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     with open(config_file, "r") as f:
         configs = json.load(f)
 
     eval_types = configs["eval"]["eval_types"]
+    logger.info(f"EVALUATOR_ROUTER: Config file: {config_file}")
+    logger.info(f"EVALUATOR_ROUTER: eval_types: {eval_types}")
+    logger.info(f"EVALUATOR_ROUTER: reference_answers: {configs['eval'].get('reference_answers', 'None')}")
+    
     evaluators: list[Evaluator] = []
     for eval_type in eval_types:
+        logger.info(f"EVALUATOR_ROUTER: Processing eval_type: {eval_type}")
         match eval_type:
             case "string_match":
+                logger.info(f"EVALUATOR_ROUTER: Adding StringEvaluator")
                 evaluators.append(StringEvaluator())
             case "url_match":
+                logger.info(f"EVALUATOR_ROUTER: Adding URLEvaluator")
                 evaluators.append(URLEvaluator())
             case "program_html":
+                logger.info(f"EVALUATOR_ROUTER: Adding HTMLContentEvaluator")
                 evaluators.append(HTMLContentEvaluator())
             case _:
                 raise ValueError(f"eval_type {eval_type} is not supported")
 
+    logger.info(f"EVALUATOR_ROUTER: Created {len(evaluators)} evaluators")
     return EvaluatorComb(evaluators)

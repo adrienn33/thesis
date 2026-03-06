@@ -114,6 +114,11 @@ def execute_python_code(
         from actions import shopping
         import importlib
         importlib.reload(shopping)
+        # Inject MCP functions and exec globals into shopping's module globals so
+        # skill bodies can call MCP tools and other skills when executed.
+        for name, obj in globals.items():
+            if not name.startswith('__'):
+                setattr(shopping, name, obj)
         for name in dir(shopping):
             obj = getattr(shopping, name)
             if callable(obj) and name.startswith('asi_'):
@@ -138,6 +143,16 @@ def execute_python_code(
 
     # REPL-style execution: auto-display results of final expressions
     code = code.strip()
+
+    # Strip markdown backtick wrappers. Handles:
+    # - inline: ```code```
+    # - fenced block: ```\ncode\n```
+    # - prose + fenced block: "I'll do X.\n```\ncode\n```"
+    import re as _re
+    _md_block = _re.compile(r'```(?:python)?\n?([\s\S]*?)```', _re.DOTALL)
+    _md_matches = _md_block.findall(code)
+    if _md_matches:
+        code = '\n'.join(m.strip() for m in _md_matches)
     
     logger.info("Starting REPL-style execution logic")
     
@@ -157,21 +172,27 @@ def execute_python_code(
                 else:
                     # Multiple statements - execute all but last, then eval last
                     logger.info(f"Executing {len(tree.body)-1} preceding statements, then eval last")
-                    # Split code to isolate last expression
                     last_expr_node = tree.body[-1]
                     preceding_code = ast.Module(body=tree.body[:-1], type_ignores=[])
-                    
-                    # Execute preceding statements
+                    last_expr_compiled = ast.Expression(body=last_expr_node.value)
+
+                    # Execute preceding statements (only once)
                     logger.info("Executing preceding statements...")
                     exec(compile(preceding_code, '<string>', 'exec'), globals)
                     logger.info("Preceding statements executed successfully")
-                    
-                    # Eval last expression
-                    logger.info("Evaluating last expression...")
-                    last_expr = ast.Expression(body=last_expr_node.value)
-                    result = eval(compile(last_expr, '<string>', 'eval'), globals)
-                    logger.info(f"Eval completed, result type: {type(result)}")
-                
+
+                    # Eval last expression; on failure exec only the last statement
+                    # (preceding statements must NOT run again to avoid double side-effects)
+                    try:
+                        logger.info("Evaluating last expression...")
+                        result = eval(compile(last_expr_compiled, '<string>', 'eval'), globals)
+                        logger.info(f"Eval completed, result type: {type(result)}")
+                    except Exception as e:
+                        logger.warning(f"REPL-style eval of last expression failed, falling back to exec for last statement only: {e}")
+                        last_stmt_code = ast.Module(body=[last_expr_node], type_ignores=[])
+                        exec(compile(last_stmt_code, '<string>', 'exec'), globals)
+                        result = None
+
                 # Display non-None results
                 logger.info(f"Checking if result is None: {result is None}")
                 if result is not None:
@@ -181,12 +202,11 @@ def execute_python_code(
                     if len(result_str) > 10000:
                         result_str = result_str[:10000] + f"... (truncated, total length: {len(result_str)})"
                     logger.info("Storing REPL output...")
-                    # Store in global instead of sending to chat to avoid STOP action
                     global repl_output
                     repl_output = f"→ {result_str}"
                     logger.info(f"REPL auto-display stored: {result_str[:200]}")
             except Exception as e:
-                # If REPL-style execution fails, fall back to regular exec
+                # Single-statement eval failed - fall back to exec of the whole (single) statement
                 logger.warning(f"REPL-style execution failed, falling back to exec: {e}")
                 exec(code, globals)
         else:
