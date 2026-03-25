@@ -7,7 +7,9 @@ import asyncio
 import json
 import sys
 import logging
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+import zoneinfo
 import aiomysql
 
 logging.basicConfig(level=logging.INFO)
@@ -134,6 +136,76 @@ class MCPServer:
                 }
                 print(json.dumps(error_response), flush=True)
 
+def _parse_product_options(raw: Any) -> list:
+    """Parse the product_options JSON column from sales_order_item into a clean list.
+
+    Returns a list of {"label": ..., "value": ...} dicts, or [] if no options.
+
+    Dimension values like "Mist 16*24" are normalized so that '*' is replaced
+    with 'x', producing "Mist 16x24".  This ensures substring checks for sizes
+    such as "16x24" work correctly against the returned value strings.
+    """
+    if not raw:
+        return []
+    try:
+        import re as _re
+        data = json.loads(raw) if isinstance(raw, str) else raw
+        opts = data.get("options", [])
+        result = []
+        for o in opts:
+            value = o.get("value", "")
+            # Normalize dimension separator: "16*24" → "16x24"
+            value = _re.sub(r'(\d+)\s*\*\s*(\d+)', r'\1x\2', value)
+            result.append({"label": o.get("label", ""), "value": value})
+        return result
+    except Exception:
+        return []
+
+# Store timezone cached after first DB read.
+_store_tz: Optional[zoneinfo.ZoneInfo] = None
+
+async def _get_store_tz(conn) -> zoneinfo.ZoneInfo:
+    """Read the Magento store timezone from core_config_data, cache it."""
+    global _store_tz
+    if _store_tz is not None:
+        return _store_tz
+    try:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute(
+                "SELECT value FROM core_config_data WHERE path = 'general/locale/timezone' LIMIT 1"
+            )
+            row = await cur.fetchone()
+            if row and row.get("value"):
+                _store_tz = zoneinfo.ZoneInfo(row["value"])
+                return _store_tz
+    except Exception:
+        pass
+    # Fallback: UTC (no conversion)
+    _store_tz = zoneinfo.ZoneInfo("UTC")
+    return _store_tz
+
+def _fmt_dt(dt_value: Any, tz: zoneinfo.ZoneInfo) -> str:
+    """Convert a UTC datetime (from MySQL) to the store's local timezone and format as string.
+
+    MySQL returns naive datetime objects; we treat them as UTC, convert to store
+    timezone, and return an ISO-like string so the agent sees localized dates
+    matching what the Magento frontend displays.
+    """
+    if dt_value is None:
+        return ""
+    if isinstance(dt_value, str):
+        try:
+            dt_value = datetime.fromisoformat(dt_value)
+        except ValueError:
+            return dt_value
+    if isinstance(dt_value, datetime):
+        if dt_value.tzinfo is None:
+            dt_value = dt_value.replace(tzinfo=timezone.utc)
+        local = dt_value.astimezone(tz)
+        return local.strftime("%Y-%m-%d %H:%M:%S")
+    return str(dt_value)
+
+
 class MagentoCheckoutServer(MCPServer):
     """MCP server for Magento checkout and orders with direct database access"""
     
@@ -150,10 +222,12 @@ class MagentoCheckoutServer(MCPServer):
         
         self.tool("list_orders")(self.list_orders)
         self.tool("get_order_details")(self.get_order_details)
-        self.tool("add_to_cart")(self.add_to_cart)
+        # Cart write operations disabled — browser session incompatible with direct DB writes.
+        # Agent must use browser actions for cart modifications.
+        # self.tool("add_to_cart")(self.add_to_cart)
         self.tool("get_cart")(self.get_cart)
-        self.tool("update_cart_item")(self.update_cart_item)
-        self.tool("remove_from_cart")(self.remove_from_cart)
+        # self.tool("update_cart_item")(self.update_cart_item)
+        # self.tool("remove_from_cart")(self.remove_from_cart)
     
     async def _get_db_connection(self):
         """Get database connection"""
@@ -186,8 +260,8 @@ class MagentoCheckoutServer(MCPServer):
                         "firstname": "Emma",                  // str: Customer first name
                         "lastname": "Lopez"                   // str: Customer last name
                     },
-                    "created_at": "2023-03-11 14:44:12",     // str: Order creation timestamp
-                    "updated_at": "2023-04-23 16:52:47",     // str: Last update timestamp
+                    "created_at": "2023-03-11 09:44:12",     // str: Order creation in store local time (America/New_York)
+                    "updated_at": "2023-04-23 12:52:47",     // str: Last update in store local time (America/New_York)
                     "totals": {
                         "grand_total": 65.32,                // float: TOTAL ORDER AMOUNT
                         "subtotal": 40.32,                   // float: Subtotal before shipping/tax
@@ -282,7 +356,8 @@ class MagentoCheckoutServer(MCPServer):
             await cursor.execute(query, tuple(params))
             results = await cursor.fetchall()
             logger.info(f"Query returned {len(results)} orders")
-            
+
+            tz = await _get_store_tz(conn)
             orders = []
             for row in results:
                 orders.append({
@@ -295,8 +370,8 @@ class MagentoCheckoutServer(MCPServer):
                         "firstname": row["customer_firstname"],
                         "lastname": row["customer_lastname"]
                     },
-                    "created_at": str(row["created_at"]),
-                    "updated_at": str(row["updated_at"]),
+                    "created_at": _fmt_dt(row["created_at"], tz),
+                    "updated_at": _fmt_dt(row["updated_at"], tz),
                     "totals": {
                         "grand_total": float(row["grand_total"]) if row["grand_total"] else 0,
                         "subtotal": float(row["subtotal"]) if row["subtotal"] else 0,
@@ -344,8 +419,8 @@ class MagentoCheckoutServer(MCPServer):
                     "lastname": "Lopez"                  // str: Customer last name
                 },
                 "dates": {
-                    "created_at": "2023-02-27 13:15:14", // str: Order creation
-                    "updated_at": "2023-04-23 16:52:38"  // str: Last update
+                    "created_at": "2023-02-27 08:15:14", // str: Order creation in store local time (America/New_York)
+                    "updated_at": "2023-04-23 12:52:38"  // str: Last update in store local time (America/New_York)
                 },
                 "totals": {
                     "grand_total": 762.18,              // float: TOTAL ORDER AMOUNT
@@ -361,7 +436,11 @@ class MagentoCheckoutServer(MCPServer):
                         "name": "Product Name",         // str: Product name
                         "sku": "PROD123",               // str: Product SKU
                         "qty": 2,                       // int: Quantity ordered
-                        "price": 25.99                  // float: Unit price
+                        "price": 25.99,                 // float: Unit price
+                        "selected_options": [           // list: Chosen configuration at time of purchase
+                            {"label": "Color", "value": "Mist 16*24"},
+                            {"label": "Size",  "value": "X-Large"}
+                        ]                               // Empty list for unconfigured (simple) products
                     }
                 ],
                 "shipping_address": {                   // dict: Shipping address
@@ -386,10 +465,11 @@ class MagentoCheckoutServer(MCPServer):
             get_order_details("123")
             get_order_details("000000170")
         """
+        order_id = str(order_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Determine if order_id is numeric (entity_id) or order number (increment_id)
             if order_id.isdigit() and len(order_id) <= 6:
                 where_clause = "so.entity_id = %s"
@@ -449,7 +529,8 @@ class MagentoCheckoutServer(MCPServer):
                     soi.price,
                     soi.row_total,
                     soi.tax_amount,
-                    soi.discount_amount
+                    soi.discount_amount,
+                    soi.product_options
                 FROM sales_order_item soi
                 WHERE soi.order_id = %s AND soi.parent_item_id IS NULL
                 ORDER BY soi.item_id
@@ -502,7 +583,8 @@ class MagentoCheckoutServer(MCPServer):
             
             await cursor.close()
             conn.close()
-            
+
+            tz = await _get_store_tz(conn)
             # Build response
             order_details = {
                 "order_id": order_row["order_id"],
@@ -516,8 +598,8 @@ class MagentoCheckoutServer(MCPServer):
                     "lastname": order_row["customer_lastname"]
                 },
                 "dates": {
-                    "created_at": str(order_row["created_at"]),
-                    "updated_at": str(order_row["updated_at"])
+                    "created_at": _fmt_dt(order_row["created_at"], tz),
+                    "updated_at": _fmt_dt(order_row["updated_at"], tz)
                 },
                 "totals": {
                     "grand_total": float(order_row["grand_total"]) if order_row["grand_total"] else 0,
@@ -566,12 +648,14 @@ class MagentoCheckoutServer(MCPServer):
                         "sku": item["sku"],
                         "name": item["product_name"],
                         "qty_ordered": float(item["qty_ordered"]) if item["qty_ordered"] else 0,
+                        "qty": float(item["qty_ordered"]) if item["qty_ordered"] else 0,  # alias for agent compatibility
                         "qty_shipped": float(item["qty_shipped"]) if item["qty_shipped"] else 0,
                         "qty_canceled": float(item["qty_canceled"]) if item["qty_canceled"] else 0,
                         "price": float(item["price"]) if item["price"] else 0,
                         "row_total": float(item["row_total"]) if item["row_total"] else 0,
                         "tax_amount": float(item["tax_amount"]) if item["tax_amount"] else 0,
-                        "discount_amount": float(item["discount_amount"]) if item["discount_amount"] else 0
+                        "discount_amount": float(item["discount_amount"]) if item["discount_amount"] else 0,
+                        "selected_options": _parse_product_options(item["product_options"])
                     } for item in items
                 ],
                 "discount_description": order_row["discount_description"],
@@ -619,10 +703,12 @@ class MagentoCheckoutServer(MCPServer):
             add_to_cart("emma.lopez@gmail.com", "B006H52HBC", "2")
             add_to_cart("emma.lopez@gmail.com", "123")
         """
+        product_id = str(product_id)
+        qty = str(qty)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Get customer info
             await cursor.execute(
                 "SELECT entity_id, firstname, lastname FROM customer_entity WHERE email = %s",
@@ -973,24 +1059,26 @@ class MagentoCheckoutServer(MCPServer):
         Examples:
             update_cart_item("emma.lopez@gmail.com", "123", "5")
         """
+        item_id = str(item_id)
+        qty = str(qty)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Get customer ID
             await cursor.execute(
                 "SELECT entity_id FROM customer_entity WHERE email = %s",
                 (customer_email,)
             )
             customer = await cursor.fetchone()
-            
+
             if not customer:
                 await cursor.close()
                 conn.close()
                 return {"error": f"Customer not found: {customer_email}"}
-            
+
             customer_id = customer["entity_id"]
-            
+
             # Verify item belongs to customer's active cart
             await cursor.execute("""
                 SELECT qi.item_id, qi.quote_id, qi.price, qi.product_id, qi.sku, qi.name
@@ -1115,24 +1203,25 @@ class MagentoCheckoutServer(MCPServer):
         Examples:
             remove_from_cart("emma.lopez@gmail.com", "123")
         """
+        item_id = str(item_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Get customer ID
             await cursor.execute(
                 "SELECT entity_id FROM customer_entity WHERE email = %s",
                 (customer_email,)
             )
             customer = await cursor.fetchone()
-            
+
             if not customer:
                 await cursor.close()
                 conn.close()
                 return {"error": f"Customer not found: {customer_email}"}
-            
+
             customer_id = customer["entity_id"]
-            
+
             # Verify item belongs to customer's active cart
             await cursor.execute("""
                 SELECT qi.item_id, qi.quote_id, qi.sku, qi.name

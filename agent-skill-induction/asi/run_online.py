@@ -183,7 +183,7 @@ def run_asi():
             "venv/bin/python3", "-m", "induce.induce_actions",
             "--website", args.website,
             "--result_id_list", tid,
-            "--mcp_enabled", "true",
+            "--mcp_enabled",
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         induced_skills_count = 0
@@ -266,9 +266,10 @@ def run_vanilla_asi():
         summary = json.load(open(path, 'r'))
         
         # Check if task should proceed with skill induction
+        # IMPORTANT: Vanilla requires min 3 steps; MCP minimum is 1
         should_induce = True
-        if summary["n_steps"] < 1: 
-            print(f"Task {tid} only had {summary['n_steps']} steps (< 1 required), skipping skill induction")
+        if summary["n_steps"] < 3: 
+            print(f"Task {tid} only had {summary['n_steps']} steps (< 3 required), skipping skill induction")
             should_induce = False
         elif summary.get("cum_reward", 0) < 1.0:
             print(f"Task {tid} did not achieve reward >= 1.0 (got {summary.get('cum_reward', 0)}), skipping skill induction")
@@ -293,7 +294,7 @@ def run_vanilla_asi():
             "venv/bin/python3", "-m", "induce.induce_actions",
             "--website", args.website,
             "--result_id_list", tid,
-            "--mcp_enabled", "false",
+            "--no-mcp_enabled",
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         induced_skills_count = 0

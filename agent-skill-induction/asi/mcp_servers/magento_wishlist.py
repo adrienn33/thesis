@@ -149,8 +149,10 @@ class MagentoWishlistServer(MCPServer):
         }
         
         self.tool("get_wishlist")(self.get_wishlist)
-        self.tool("add_to_wishlist")(self.add_to_wishlist)
-        self.tool("remove_from_wishlist")(self.remove_from_wishlist)
+        # Wishlist write operations disabled — browser session incompatible with direct DB writes.
+        # Agent must use browser actions (navigate to product page, click "Add to Wish List").
+        # self.tool("add_to_wishlist")(self.add_to_wishlist)
+        # self.tool("remove_from_wishlist")(self.remove_from_wishlist)
     
     async def _get_db_connection(self):
         """Get database connection"""
@@ -343,10 +345,12 @@ class MagentoWishlistServer(MCPServer):
             add_to_wishlist("emma.lopez@gmail.com", "B006H52HBC")
             add_to_wishlist("emma.lopez@gmail.com", "123", "2", "Birthday gift idea")
         """
+        product_id = str(product_id)
+        qty = str(qty)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Get customer ID
             await cursor.execute(
                 "SELECT entity_id FROM customer_entity WHERE email = %s",
@@ -517,10 +521,11 @@ class MagentoWishlistServer(MCPServer):
         Examples:
             remove_from_wishlist("emma.lopez@gmail.com", "123")
         """
+        wishlist_item_id = str(wishlist_item_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Get customer ID
             await cursor.execute(
                 "SELECT entity_id FROM customer_entity WHERE email = %s",

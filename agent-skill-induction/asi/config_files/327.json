@@ -19,7 +19,7 @@
       "url_match"
     ],
     "reference_answers": null,
-    "reference_url": "localhost:7770/catalogsearch/result/index/?q=%20iphone%2012%20phone%20case&product_list_order=name",
+    "reference_url": "localhost:7770/catalogsearch/result/index/?q=iphone+12+phone+case&product_list_order=name",
     "program_html": [],
     "url_note": "GOLD in PRED"
   },

@@ -105,6 +105,7 @@ class MagentoAccountServer(MCPServer):
         Examples:
             get_account_info("convexegg@gmail.com")
         """
+        customer_email = str(customer_email)
         async with self.db_pool.acquire() as conn:
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 await cursor.execute("""
@@ -278,6 +279,7 @@ class MagentoAccountServer(MCPServer):
             update_account_info("emma.lopez@gmail.com", firstname="Emma", lastname="Lopez-Smith")
             update_account_info("convexegg@gmail.com", dob="1990-05-15", gender="male")
         """
+        customer_email = str(customer_email)
         async with self.db_pool.acquire() as conn:
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 await cursor.execute("""
@@ -329,7 +331,7 @@ class MagentoAccountServer(MCPServer):
                         "female": 2,
                         "other": 3
                     }
-                    gender_value = gender_map.get(gender.lower(), 0)
+                    gender_value = gender_map.get(str(gender).lower(), 0)
                     update_fields.append("gender = %s")
                     update_values.append(gender_value)
                 

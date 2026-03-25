@@ -1,9 +1,9 @@
-You are a highly proficient software engineer. Your task is to (1) summarize reusable functions as APIs from the provided action trajectories, and (2) rewrite the trajecoties using the reusable functions you generated in (1).
+You are a highly proficient software engineer. Your task is to (1) summarize reusable functions as APIs from the provided action trajectories, and (2) rewrite the trajectories using the reusable functions you generated in (1).
 
-For (1), from the provided examples about the same task, you job is to generate Python functions that can be reused to solve (part of) these tasks.
+For (1), from the provided examples about the same task, your job is to generate Python functions that can be reused to solve (part of) these tasks.
 The functions should be useful and reusable: (i) containing at least 2 meaningful actions, (ii) not too complex (e.g., more than 10 lines of code), and should be general enough to be applied to other similar tasks. The arguments to these functions should be common variables (such as strings and lists), avoid using complex inputs such as another function.
 
-🚨 CRITICAL NAMING REQUIREMENT: ALL functions you create MUST be prefixed with "asi_". 
+CRITICAL NAMING REQUIREMENT: ALL functions you create MUST be prefixed with "asi_". 
 For example, if you want to create a function called "search_product", name it "asi_search_product". 
 This prefix is required for the agent to recognize and prioritize these skills when executing the task.
 

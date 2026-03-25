@@ -19,6 +19,23 @@ from llms.providers.openai_utils import (
     generate_from_openai_chat_completion,
 )
 
+import anthropic as _anthropic
+
+def _generate_from_claude(messages: list[dict], model: str = "claude-sonnet-4-6") -> str:
+    """Call Claude via the Anthropic SDK, mirroring the pattern used in autoeval/clients.py."""
+    import os
+    _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
+    user_messages = [m for m in messages if m["role"] != "system"]
+    response = _client.messages.create(
+        model=model,
+        max_tokens=768,
+        temperature=0,
+        system=system_msg,
+        messages=user_messages,
+    )
+    return response.content[0].text
+
 
 def shopping_get_auth_token() -> str:
     response = requests.post(
@@ -144,56 +161,52 @@ def gitlab_get_project_memeber_role(page: Page, account_name: str) -> str:
 
 
 def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
-    """Check whether the prediction matches the reference with GPT4-turbo"""
+    """Check whether the prediction matches the reference using Claude."""
     import logging
     logger = logging.getLogger(__name__)
-    
-    messages: list[dict[str, Any]] = []
-    # construct the question to ask
-    message = "Help a teacher to grade the answer of a student given a question. Keep in mind that the student may use different phrasing or wording to answer the question. The goal is to evaluate whether the answer is semantically equivalent to the reference answer.\n"
-    message += f"question: {question}\n"
-    message += f"reference answer: {reference}\n"
-    message += "all the string 'N/A' that you see is a special sequence that means 'not achievable'\n"
-    message += f"student answer: {pred}\n"
-    message += "Conclude the judgement by correct/incorrect/partially correct."
+
+    message = (
+        "You are grading a student's answer to a question. "
+        "Your job is to check whether the student's answer contains the information specified in the reference answer.\n\n"
+        "IMPORTANT RULES:\n"
+        "- The student's answer is CORRECT if it contains the reference information, even if it also includes additional correct details.\n"
+        "- Do NOT penalise extra information. A more complete answer is still correct.\n"
+        "- The student's answer is INCORRECT only if the reference information is missing or wrong.\n"
+        "- The string 'N/A' means the task is not achievable.\n\n"
+        f"Question: {question}\n"
+        f"Reference answer: {reference}\n"
+        f"Student answer: {pred}\n\n"
+        "Does the student's answer contain the reference information? "
+        "Respond with exactly one word: correct or incorrect."
+    )
     messages = [
-        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "system", "content": "You are a precise grading assistant. Respond with exactly one word: correct or incorrect."},
         {"role": "user", "content": message},
     ]
 
-    # Log the evaluation attempt
     logger.info(f"LLM_FUZZY_MATCH: Evaluating reference='{reference}' against pred='{pred[:100]}{'...' if len(pred) > 100 else ''}'")
     logger.info(f"LLM_FUZZY_MATCH: Full evaluation prompt:\n{message}")
-    
+
     try:
-        response = generate_from_openai_chat_completion(
-            model="gpt-4-1106-preview",
-            messages=messages,
-            temperature=0,
-            max_tokens=768,
-            top_p=1.0,
-            context_length=0,
-        )
-        
-        # Log the raw response before processing
+        response = _generate_from_claude(messages)
+
         logger.info(f"LLM_FUZZY_MATCH: Raw LLM response: '{response}'")
-        
+
         response_lower = response.lower()
         logger.info(f"LLM_FUZZY_MATCH: Lowercased response: '{response_lower}'")
-        
-        if "partially correct" in response_lower or "incorrect" in response_lower:
+
+        if "incorrect" in response_lower:
             score = 0.0
-            logger.info(f"LLM_FUZZY_MATCH: RESULT=FAIL (score=0.0) - Found 'partially correct' or 'incorrect'")
+            logger.info(f"LLM_FUZZY_MATCH: RESULT=FAIL (score=0.0) - Found 'incorrect'")
         elif "correct" in response_lower:
             score = 1.0
             logger.info(f"LLM_FUZZY_MATCH: RESULT=PASS (score=1.0) - Found 'correct'")
         else:
             logger.warning(f"LLM_FUZZY_MATCH: UNEXPECTED RESPONSE FORMAT - no clear judgment found")
-            logger.warning(f"LLM_FUZZY_MATCH: This will trigger AssertionError and return 0.0")
             assert "correct" in response_lower
-            
+
         return score
-        
+
     except AssertionError as e:
         logger.error(f"LLM_FUZZY_MATCH: AssertionError caught - LLM response did not contain 'correct': {e}")
         logger.error(f"LLM_FUZZY_MATCH: Returning 0.0 due to AssertionError")
@@ -205,12 +218,11 @@ def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
 
 
 def llm_ua_match(pred: str, reference: str, question: str) -> float:
-    """Check whether the prediction matches the reference with GPT-turbo"""
+    """Check whether the prediction matches the reference with Claude."""
     import logging
     logger = logging.getLogger(__name__)
-    
+
     messages: list[dict[str, Any]] = []
-    # construct the question to ask
     message = ""
     message += f"task: {question}\n"
     message += f"actual unachievable reason: {reference}\n"
@@ -220,10 +232,11 @@ def llm_ua_match(pred: str, reference: str, question: str) -> float:
         "An individual previously attempted this task and was unable to complete it. They provided a reason for their failure, "
         "which is listed under 'reported unachievable reason'. Your role is to review both the actual and reported reasons. "
         "Determine if the reported reason aligns with the actual reason, even if implicitly. "
-        "If the stated reason is in line with the actual reason, respond with 'same'. Otherwise, respond with 'different'."
+        "If the stated reason is in line with the actual reason, respond with exactly one word: same. "
+        "Otherwise, respond with exactly one word: different."
     )
     messages = [
-        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "system", "content": "You are a precise grading assistant. Respond with exactly one word: same or different."},
         {"role": "user", "content": message},
     ]
 
@@ -233,14 +246,7 @@ def llm_ua_match(pred: str, reference: str, question: str) -> float:
     logger.info(f"LLM_UA_MATCH: Full evaluation prompt:\n{message}")
     
     try:
-        response = generate_from_openai_chat_completion(
-            model="gpt-4-1106-preview",
-            messages=messages,
-            temperature=0,
-            max_tokens=768,
-            top_p=1.0,
-            context_length=0,
-        )
+        response = _generate_from_claude(messages)
         
         # Log the raw response before processing
         logger.info(f"LLM_UA_MATCH: Raw LLM response: '{response}'")

@@ -169,11 +169,13 @@ def _call_mcp_tool(tool_name, **kwargs):
             # Check if this is an MCP tool (based on docstring content or function location)
             is_mcp_tool = False
             try:
-                # MCP tools will have docstrings that don't contain "Examples:" or will be dynamically created
-                if hasattr(func, '__doc__') and func.__doc__ and 'MCP tool wrapper' in func.__doc__:
-                    is_mcp_tool = True
-                elif hasattr(func, '__name__') and ('magento_review_server' in func.__name__ or 'find_reviewers' in func.__name__):
-                    is_mcp_tool = True
+                func_name = getattr(func, '__name__', '')
+                is_asi_skill = func_name.startswith('asi_')
+                if not is_asi_skill:
+                    if hasattr(func, '__doc__') and func.__doc__ and 'MCP tool wrapper' in func.__doc__:
+                        is_mcp_tool = True
+                    elif func_name and ('magento_review_server' in func_name or 'magento_product_server' in func_name or 'magento_checkout_server' in func_name or 'magento_wishlist_server' in func_name or 'magento_account_server' in func_name):
+                        is_mcp_tool = True
             except:
                 is_mcp_tool = False
 

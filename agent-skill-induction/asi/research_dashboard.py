@@ -512,7 +512,7 @@ def generate_html_dashboard(results, comparisons, total_experiments, cohort_name
                     <th>Avg Time (s)</th>
                     <th>Skills Reused</th>
                     <th>Skills Induced</th>
-                    <th>Token Usage</th>
+                    <th>Avg Input Tokens / Task</th>
                 </tr>
             </thead>
             <tbody>"""

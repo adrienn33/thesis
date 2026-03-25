@@ -136,91 +136,70 @@ def induce_actions() -> list[str] | None:
     messages = [{"role": "system", "content": open(args.sys_msg_path).read()}]
     messages += [{"role": "user", "content": open(instruction_path).read()}]
     messages += [{"role": "user", "content": open(args.few_shot_path).read()}]
-    messages += [{"role": "user", "content": f"""## ⚠️ CRITICAL: EXISTING SKILLS - DO NOT DUPLICATE
+    messages += [{"role": "user", "content": f"""## EXISTING SKILLS - DO NOT DUPLICATE
 
-The following skills have ALREADY been learned and implemented. You MUST NOT create new functions with these names or similar functionality.
+The following skills have already been learned and implemented. You MUST NOT create new functions with these names or similar functionality.
 
-**EXISTING SKILL NAMES (FORBIDDEN TO RECREATE):**
+EXISTING SKILL NAMES (FORBIDDEN TO RECREATE):
 {existing_names_list}
 
-**Existing Function Signatures:**
+Existing Function Signatures:
 ```python
 {existing_funcs_summary}
 ```
 
-🚨 **IMPORTANT RULES:**
-1. You MUST ONLY propose NEW skills that don't already exist
-2. Check the existing names list above - if a skill name already exists, DO NOT recreate it
-3. Look for similar functionality in existing skills - don't duplicate similar behavior with different names
-4. Focus on identifying genuinely NOVEL patterns that aren't covered by existing skills
+IMPORTANT RULES:
+1. You MUST ONLY propose NEW skills that do not already exist.
+2. Check the existing names list above - if a skill name already exists, DO NOT recreate it.
+3. Look for similar functionality in existing skills - do not duplicate similar behavior with different names.
+4. Focus on identifying genuinely novel patterns that are not covered by existing skills.
 
-✅ **WHAT TO DO:**
-- Only propose skills that solve completely new problems not addressed by existing skills
-- Use descriptive names that are clearly different from existing ones
-- If you cannot identify novel skills, it's better to propose NO new skills than duplicate existing ones"""}]
+If you cannot identify novel skills, it is better to propose NO new skills than to duplicate existing ones. Only propose skills that solve completely new problems not addressed by existing skills, and use descriptive names that are clearly different from existing ones."""}]
     messages += [{"role": "user", "content": test_query + '\n\n## Reusable Functions'}]
 
     all_responses = []
-    if "openai" in args.model:  # can generate multiple responses at once
-        # OpenAI models not supported in this conversion, using Claude instead
-        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
-        user_messages = [msg for msg in messages if msg["role"] == "user"]
-        for i in range(args.num_responses):
-            response = client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=4096,
-                temperature=args.temperature,
-                system=system_msg,
-                messages=user_messages,
-            )
-            curr_resp = response.content[0].text
-            curr_path = os.path.join(args.output_dir, f"{i}.md")
-            with open(curr_path, 'w') as fw:
-                fw.write(test_query + '\n\n\n' + curr_resp)
-            all_responses.append(curr_resp)
-    else:  # need to explicitly generate multiple times
-        import time
-        import random
-        
-        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
-        user_messages = [msg for msg in messages if msg["role"] == "user"]
-        
-        for i in range(args.num_responses):
-            max_retries = 3
-            base_delay = 30
-            
-            for attempt in range(max_retries):
-                try:
-                    response = client.messages.create(
-                        model=args.model.replace("litellm/neulab/", "").replace("claude-", "claude-"),
-                        max_tokens=4096,
-                        temperature=args.temperature,
-                        system=system_msg,
-                        messages=user_messages,
-                    )
-                    curr_resp = response.content[0].text
-                    break  # Success, exit retry loop
-                    
-                except anthropic.RateLimitError as e:
-                    if attempt < max_retries - 1:
-                        delay = base_delay + random.uniform(0, 10)
-                        print(f"Rate limit hit, waiting {delay:.1f} seconds before retry {attempt + 2}/{max_retries}")
-                        time.sleep(delay)
-                    else:
-                        print(f"Rate limit error after {max_retries} attempts: {e}")
-                        curr_resp = ""
-                        break
-                        
-                except Exception as e:
-                    print(f"Error calling Anthropic API: {e}")
+    import time
+    import random
+
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
+    user_messages = [msg for msg in messages if msg["role"] == "user"]
+
+    for i in range(args.num_responses):
+        max_retries = 3
+        base_delay = 30
+
+        for attempt in range(max_retries):
+            try:
+                response = client.messages.create(
+                    model=args.model,
+                    max_tokens=4096,
+                    temperature=args.temperature,
+                    system=system_msg,
+                    messages=user_messages,
+                )
+                curr_resp = response.content[0].text
+                break  # Success, exit retry loop
+
+            except anthropic.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    delay = base_delay + random.uniform(0, 10)
+                    print(f"Rate limit hit, waiting {delay:.1f} seconds before retry {attempt + 2}/{max_retries}")
+                    time.sleep(delay)
+                else:
+                    print(f"Rate limit error after {max_retries} attempts: {e}")
                     curr_resp = ""
                     break
-            curr_path = os.path.join(args.output_dir, f"{i}.md")
-            with open(curr_path, 'w') as fw:
-                fw.write(test_query + '\n\n\n' + curr_resp)
-            all_responses.append(curr_resp)
+
+            except Exception as e:
+                print(f"Error calling Anthropic API: {e}")
+                curr_resp = ""
+                break
+
+        curr_path = os.path.join(args.output_dir, f"{i}.md")
+        with open(curr_path, 'w') as fw:
+            fw.write(test_query + '\n\n\n' + curr_resp)
+        all_responses.append(curr_resp)
     print(f"[INDUCE] Generated {len(all_responses)} responses")
     for i, resp in enumerate(all_responses):
         print(f"[INDUCE] Response {i}: {len(resp)} chars")
@@ -262,7 +241,7 @@ def write_actions(response: str) -> tuple[str, list[str]]:
             print(f"ACCEPTED: New skill(s) {all_names_in_action}")
 
     if duplicates_found:
-        print(f"\n❌ REJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
+        print(f"\nREJECTED {len(duplicates_found)} duplicate function(s): {duplicates_found}")
         print(f"   These functions already exist in {args.write_action_path}")
     
     print(
@@ -286,7 +265,7 @@ def write_actions(response: str) -> tuple[str, list[str]]:
 # %% Run Tests
 from induce.utils import parse_tests
 
-def write_tests(response: str, result_id_list: list[str], action_names: list[str] = []) -> bool:
+def write_tests(response: str, result_id_list: list[str], action_names: list[str] = [], is_mcp_enabled: bool = False) -> bool:
     """Extract tests, write tests to file, and run tests.
     Args:
         response: model generated response including induced actions, tests, and texts.
@@ -312,10 +291,13 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         # write test script
         script_content.append(f"# Run test for task {r}")
         task_id = r.split('_')[0]
-        config_file = f"config_files/{task_id}-mcp-container.json"
+        # Use original config based on MCP enablement
+        if is_mcp_enabled:
+            config_file = f"config_files/{task_id}-mcp-container.json"
+        else:
+            config_file = f"config_files/{task_id}.json"
         script_content.append(
-            # f"python run_demo.py --websites {args.website} --headless "
-            f"python run_demo.py --websites {args.website} "
+            f"venv/bin/python3 run_demo.py --websites {args.website} --headless "
             f"--task_name webarena.{task_id} "
             f"--action_path {test_path} "
             f"--mcp_config {config_file} "
@@ -341,30 +323,50 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
     
     # check test results
     scores = []
+    revert_reasons = []
     for r in result_id_list:
+        reason = None
         if args.eval_with_gold:
             eval_path = os.path.join(args.results_dir, f"webarena.{r}_test", "summary_info.json")
             if os.path.exists(eval_path):
-                scores.append(json.load(open(eval_path))["cum_reward"] == 1.0)
+                cum_reward = json.load(open(eval_path))["cum_reward"]
+                passed = cum_reward == 1.0
+                scores.append(passed)
+                if not passed:
+                    reason = f"[gold] cum_reward={cum_reward} (expected 1.0)"
+                print(f"[EVAL] Task {r} gold eval: cum_reward={cum_reward} → {'PASS' if passed else 'FAIL'}")
             else:
                 scores.append(False)
+                reason = f"[gold] summary_info.json not found at {eval_path}"
+                print(f"[EVAL] Task {r} gold eval: FAIL — {reason}")
         else:
+            mcp_flag = "--mcp_enabled" if is_mcp_enabled else "--no-mcp_enabled"
             process = subprocess.Popen([
-                "python", "-m", "autoeval.evaluate_trajectory",
+                "venv/bin/python3", "-m", "autoeval.evaluate_trajectory",
                 "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test"),
                 "--model", args.autoeval_model,
+                mcp_flag,
             ])
             process.wait()
 
             eval_path = os.path.join(args.results_dir, f"webarena.{r}_test", f"{args.autoeval_model}_autoeval.json")
             if os.path.exists(eval_path):
-                scores.append(json.load(open(eval_path))[0]["rm"] == True)
+                eval_data = json.load(open(eval_path))[0]
+                rm = eval_data.get("rm")
+                passed = rm == True
+                scores.append(passed)
+                print(f"[EVAL] Task {r} autoeval ({args.autoeval_model}): rm={rm} → {'PASS' if passed else 'FAIL'}")
+                print(f"[EVAL] Full autoeval response:\n{json.dumps(eval_data, indent=2)}")
+                if not passed:
+                    reason = f"[autoeval] rm={rm}"
             else:
                 scores.append(False)
+                reason = f"[autoeval] JSON not found at {eval_path}"
+                print(f"[EVAL] Task {r} autoeval: FAIL — {reason}")
 
         # check step valid and use actions
         command = [
-            "python", "-m", "results.calc_valid_steps",
+            "venv/bin/python3", "-m", "results.calc_valid_steps",
             "--result_dir", os.path.join(args.results_dir, f"webarena.{r}_test"),
             "--action_names"] + action_names
         process = subprocess.Popen(command, stdout=subprocess.PIPE)
@@ -372,7 +374,13 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         output = process.communicate()[0].decode("utf-8").strip()
         output = output.split('\n')[-1].strip()
         print("Validity Check: ", output)
-        if output == 'False': scores[-1] = False
+        if output == 'False':
+            reason = (reason or "") + " | [validity] induced actions not used in test trajectory"
+            scores[-1] = False
+            print(f"[EVAL] Task {r} validity: FAIL — induced actions not found in test steps")
+
+        if reason:
+            revert_reasons.append(f"Task {r}: {reason}")
 
         if scores[-1] == False: break
     
@@ -381,13 +389,15 @@ def write_tests(response: str, result_id_list: list[str], action_names: list[str
         print("All Tests Passed!")
         return False
     else:
+        print(f"[REVERT REASONS]")
+        for reason in revert_reasons:
+            print(f"  - {reason}")
         return True
-
-# %% Overall pipeline
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="claude", choices=["gpt-4o", "claude"])
+    parser.add_argument("--model", type=str, default="claude-sonnet-4-6",
+                        help="Anthropic model for skill induction.")
     parser.add_argument("--num_responses", type=int, default=1, help="Number of responses to generate.")
     parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling.")
 
@@ -405,27 +415,21 @@ if __name__ == "__main__":
 
     parser.add_argument("--write_action_path", type=str, default=None)
     parser.add_argument("--write_tests_dir", type=str, default="debug_actions")
-    parser.add_argument("--eval_with_gold", action="store_true", help="If perform evaluation with ground-truth.")
-    parser.add_argument("--autoeval_model", type=str, default="claude-haiku-4-5",
+    parser.add_argument("--eval_with_gold", action=argparse.BooleanOptionalAction, default=False,
+                        help="Evaluate with ground-truth cum_reward (--eval_with_gold / --no-eval_with_gold). Default: False (uses LLM autoeval).")
+    parser.add_argument("--autoeval_model", type=str, default="claude-sonnet-4-6",
                         help="Model used by autoeval.evaluate_trajectory; must match the JSON filename (e.g. <model>_autoeval.json).")
-    parser.add_argument("--mcp_enabled", type=str, choices=["true", "false"], default="false", help="Whether MCP tools are enabled for this experiment")
+    parser.add_argument("--mcp_enabled", action=argparse.BooleanOptionalAction, default=False,
+                        help="Whether MCP tools are enabled for this experiment (--mcp_enabled / --no-mcp_enabled)")
     args = parser.parse_args()
     
-    # Convert string argument to boolean
-    args.mcp_enabled = args.mcp_enabled.lower() == "true"
+    # Make is_mcp_enabled available at module level for write_tests function
+    is_mcp_enabled = args.mcp_enabled
 
-    # decide model name
-    if args.model == "claude":
-        args.model = "claude-haiku-4-5"
-    # args.model = args.model.replace("litellm", "openai")
-
-    # decide path to write actions
     if args.write_action_path is None:
         args.write_action_path = os.path.join("actions", f"{args.website}.py")
 
-    # decide path for entire model output
     args = get_output_dir(args)
-    # ALWAYS run fresh induction - no caching
     if os.path.exists(args.output_dir):
         print(f"Output directory already exists: {args.output_dir} - removing and regenerating")
         import shutil
@@ -434,8 +438,7 @@ if __name__ == "__main__":
     print(f"Creating new output directory: {args.output_dir}")
     os.makedirs(args.output_dir, exist_ok=True)
     responses = induce_actions()
-    
-    # write actions and run tests
+
     print(f"Collected {len(responses)} Responses..")
     if len(responses) == 0:
         print(f"ERROR: No responses generated. Check if test_query was created and LLM call succeeded.")
@@ -449,17 +452,15 @@ if __name__ == "__main__":
         tmp_path, action_names = write_actions(resp)
         if tmp_path is None: continue
 
-        if_revert = write_tests(resp, args.result_id_list, action_names)
+        if_revert = write_tests(resp, args.result_id_list, action_names, is_mcp_enabled)
         print("If Revert: ", if_revert)
         if if_revert:
             process = subprocess.Popen(["mv", tmp_path, args.write_action_path])
             process.wait()
-            # cont = input("Continue? (y/n): ")
             for i, r in enumerate(args.result_id_list):
                 print("Command: ", ["rm", "-rf", f"results/webarena.{r}_test"])
                 process = subprocess.Popen(["rm", "-rf", f"results/webarena.{r}_test"])
                 process.wait()
-                # cont = input("Continue? (y/n): ")
         else:
             process = subprocess.Popen(["rm", tmp_path])
             process.wait()
