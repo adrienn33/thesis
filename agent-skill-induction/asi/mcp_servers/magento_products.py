@@ -159,7 +159,7 @@ class MagentoProductServer(MCPServer):
     async def search_products(self, sku: Optional[str] = None, name: Optional[str] = None, 
                              description: Optional[str] = None, category: Optional[str] = None,
                              min_price: Optional[str] = None, max_price: Optional[str] = None,
-                             limit: str = "200") -> List[Dict]:
+                             limit: str = "500") -> List[Dict]:
         """Search for products by SKU, product name, description, category, and/or price range.
 
         WARNING: All text parameters (name, description) use FUZZY/PARTIAL matching via SQL LIKE.
@@ -176,7 +176,7 @@ class MagentoProductServer(MCPServer):
             category: Category name or ID
             min_price: Minimum price
             max_price: Maximum price
-            limit: Maximum number of results (default 200)
+            limit: Maximum number of results (default 500)
             
         Returns:
             List of product dictionaries with this structure:
@@ -187,19 +187,16 @@ class MagentoProductServer(MCPServer):
                     "name": "Sennheiser HD 202 II Professional Headphones", // str: Product name
                     "price": 29.95,                      // float: Product price
                     "description": "Professional closed back headphones...", // str: Description
-                    "short_description": "Professional headphones",          // str: Short description
-                    "weight": "1.2000",                  // str: Product weight
-                    "status": 1,                         // int: Product status (1=enabled)
-                    "visibility": 4,                     // int: Visibility setting
-                    "type_id": "simple",                 // str: Product type
-                    "attribute_set_id": 4,               // int: Attribute set
-                    "category_ids": [15, 16],            // list: Associated category IDs
-                    "website_ids": [1],                  // list: Website IDs
-                    "stock_status": 1,                   // int: Stock status (1=in stock)
-                    "qty": 100                           // int: Available quantity
+                    "qty": 100,                          // float: Available quantity
+                    "is_in_stock": true,                 // bool: Stock availability
+                    "url": "http://localhost:7770/sennheiser-hd-202.html" // str: Canonical product URL — use this for goto()
                 }
             ]
-            
+
+            IMPORTANT: When navigating to a product page, always use the "url" field from this
+            result rather than constructing /catalog/product/view/id/... URLs. The "url" field
+            contains the canonical SEO-friendly URL that the evaluator expects.
+
             Use this for finding products by search criteria. For detailed product info including
             configurable options (colors, sizes), use get_product_details() with the entity_id.
             
@@ -223,7 +220,8 @@ class MagentoProductServer(MCPServer):
                     cpev_desc.value as description,
                     cpd_price.value as price,
                     csi.qty,
-                    csi.is_in_stock
+                    csi.is_in_stock,
+                    ur.request_path as url_path
                 FROM catalog_product_entity cpe
                 LEFT JOIN catalog_product_entity_varchar cpev_name 
                     ON cpe.entity_id = cpev_name.entity_id 
@@ -235,6 +233,12 @@ class MagentoProductServer(MCPServer):
                     ON cpe.entity_id = cpd_price.entity_id
                     AND cpd_price.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'price' AND entity_type_id = 4)
                 LEFT JOIN cataloginventory_stock_item csi ON cpe.entity_id = csi.product_id
+                LEFT JOIN url_rewrite ur
+                    ON ur.entity_id = cpe.entity_id
+                    AND ur.entity_type = 'product'
+                    AND ur.redirect_type = 0
+                    AND ur.store_id = 1
+                    AND ur.metadata IS NULL
             """
             
             if sku:
@@ -257,6 +261,7 @@ class MagentoProductServer(MCPServer):
                         ON cce.entity_id = ccev.entity_id
                         AND ccev.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 3)
                 """
+                category = str(category)
                 if category.isdigit():
                     conditions.append("cce.entity_id = %s")
                     params.append(int(category))
@@ -266,16 +271,16 @@ class MagentoProductServer(MCPServer):
             
             if min_price:
                 conditions.append("cpd_price.value >= %s")
-                params.append(float(min_price))
-            
+                params.append(float(str(min_price)))
+
             if max_price:
                 conditions.append("cpd_price.value <= %s")
-                params.append(float(max_price))
+                params.append(float(str(max_price)))
             
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
             
-            limit_value = int(limit) if limit is not None else 200
+            limit_value = int(str(limit)) if limit is not None else 500
             base_query += f" LIMIT {limit_value}"
             
             logger.info(f"Executing query with LIMIT {limit_value}, limit param was: {limit}")
@@ -283,8 +288,10 @@ class MagentoProductServer(MCPServer):
             results = await cursor.fetchall()
             logger.info(f"Query returned {len(results)} results")
             
+            base_url = "http://localhost:7770/"
             products = []
             for row in results:
+                url_path = row.get("url_path")
                 products.append({
                     "entity_id": row["entity_id"],
                     "sku": row["sku"],
@@ -292,7 +299,8 @@ class MagentoProductServer(MCPServer):
                     "description": row["description"][:200] + "..." if row["description"] and len(row["description"]) > 200 else row["description"],
                     "price": float(row["price"]) if row["price"] else None,
                     "qty": float(row["qty"]) if row["qty"] else 0,
-                    "is_in_stock": bool(row["is_in_stock"])
+                    "is_in_stock": bool(row["is_in_stock"]),
+                    "url": (base_url + url_path) if url_path else f"{base_url}catalog/product/view/id/{row['entity_id']}"
                 })
             
             await cursor.close()
@@ -362,6 +370,9 @@ class MagentoProductServer(MCPServer):
                 }
             }
             
+            The "url" field contains the canonical SEO-friendly URL for this product.
+            Use goto(product["url"]) to navigate to it — do not construct /catalog/product/view/id/... URLs.
+
             For simple products, configurable_options will be empty.
             For configurable products, this shows all color/size/etc. options available.
             
@@ -369,10 +380,11 @@ class MagentoProductServer(MCPServer):
             get_product_details("123")
             get_product_details("B006H52HBC")
         """
+        product_id = str(product_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             if product_id.isdigit():
                 where_clause = "cpe.entity_id = %s"
                 param = int(product_id)
@@ -390,7 +402,8 @@ class MagentoProductServer(MCPServer):
                     cpd_price.value as price,
                     csi.qty,
                     csi.is_in_stock,
-                    cpev_image.value as image
+                    cpev_image.value as image,
+                    ur.request_path as url_path
                 FROM catalog_product_entity cpe
                 LEFT JOIN catalog_product_entity_varchar cpev_name 
                     ON cpe.entity_id = cpev_name.entity_id 
@@ -405,6 +418,12 @@ class MagentoProductServer(MCPServer):
                     ON cpe.entity_id = cpev_image.entity_id
                     AND cpev_image.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'image' AND entity_type_id = 4)
                 LEFT JOIN cataloginventory_stock_item csi ON cpe.entity_id = csi.product_id
+                LEFT JOIN url_rewrite ur
+                    ON ur.entity_id = cpe.entity_id
+                    AND ur.entity_type = 'product'
+                    AND ur.redirect_type = 0
+                    AND ur.store_id = 1
+                    AND ur.metadata IS NULL
                 WHERE {where_clause}
             """
             
@@ -416,6 +435,8 @@ class MagentoProductServer(MCPServer):
                 conn.close()
                 return {"error": f"Product not found: {product_id}"}
             
+            base_url = "http://localhost:7770/"
+            url_path = result.get("url_path")
             product = {
                 "entity_id": result["entity_id"],
                 "sku": result["sku"],
@@ -428,6 +449,7 @@ class MagentoProductServer(MCPServer):
                     "is_in_stock": bool(result["is_in_stock"])
                 },
                 "image": result["image"],
+                "url": (base_url + url_path) if url_path else f"{base_url}catalog/product/view/id/{result['entity_id']}",
                 "options": []
             }
             
@@ -480,19 +502,18 @@ class MagentoProductServer(MCPServer):
             List of category dictionaries with this structure:
             [
                 {
-                    "entity_id": 15,                 // int: Category ID
+                    "category_id": 15,               // int: Category ID
                     "name": "Electronics",           // str: Category name
-                    "parent_id": 2,                  // int: Parent category ID (null for root)
-                    "level": 2,                      // int: Category level in hierarchy
-                    "path": "1/2/15",                // str: Full path from root
-                    "position": 1,                   // int: Sort position
-                    "is_active": 1,                  // int: Active status (1=active, 0=inactive)
-                    "include_in_menu": 1,            // int: Show in menu (1=yes, 0=no)
-                    "children_count": 5,             // int: Number of subcategories
-                    "product_count": 42              // int: Number of products in category
+                    "parent_id": 2,                  // int: Parent category ID
+                    "level": 2,                      // int: Category depth in hierarchy
+                    "url": "http://localhost:7770/electronics.html" // str: Canonical category URL — use this for goto()
                 }
             ]
-            
+
+            IMPORTANT: When navigating to a category page, always use the "url" field rather
+            than constructing /catalog/category/view/id/... URLs. The "url" field contains the
+            canonical SEO-friendly URL that the evaluator expects.
+
             Categories are returned in hierarchical order. Use parent_id to build category trees.
             Root categories have parent_id=1 (the default root category).
             
@@ -509,25 +530,35 @@ class MagentoProductServer(MCPServer):
                     cce.parent_id,
                     ccev.value as name,
                     cce.level,
-                    cce.position
+                    cce.position,
+                    ur.request_path as url_path
                 FROM catalog_category_entity cce
                 JOIN catalog_category_entity_varchar ccev 
                     ON cce.entity_id = ccev.entity_id
                     AND ccev.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 3)
+                LEFT JOIN url_rewrite ur
+                    ON ur.entity_id = cce.entity_id
+                    AND ur.entity_type = 'category'
+                    AND ur.redirect_type = 0
+                    AND ur.store_id = 1
+                    AND ur.metadata IS NULL
                 WHERE cce.level > 0
                 ORDER BY cce.level, cce.position
             """
             
             await cursor.execute(query)
             results = await cursor.fetchall()
-            
+
+            base_url = "http://localhost:7770/"
             categories = []
             for row in results:
+                url_path = row.get("url_path")
                 categories.append({
                     "category_id": row["entity_id"],
                     "name": row["name"],
                     "parent_id": row["parent_id"],
-                    "level": row["level"]
+                    "level": row["level"],
+                    "url": (base_url + url_path) if url_path else f"{base_url}catalog/category/view/id/{row['entity_id']}"
                 })
             
             await cursor.close()

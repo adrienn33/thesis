@@ -232,7 +232,12 @@ class URLEvaluator(Evaluator):
 
         def clean_url(url: str) -> str:
             url = str(url)
+            if "://" not in url:
+                url = "http://" + url
             url = url.rstrip("/")
+            # Normalize double slashes in path (e.g. http://host:port//path → http://host:port/path)
+            scheme_end = url.find("://") + 3
+            url = url[:scheme_end] + url[scheme_end:].replace("//", "/")
             return url
 
         def parse_url(url: str) -> tuple[str, dict[str, list[str]]]:

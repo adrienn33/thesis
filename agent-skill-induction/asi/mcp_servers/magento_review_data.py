@@ -194,10 +194,11 @@ class MagentoReviewServer(MCPServer):
             get_product_reviews("123")
             get_product_reviews("B006H52HBC")
         """
+        product_id = str(product_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Check if product_id is numeric (entity_id) or alphanumeric (SKU)
             if product_id.isdigit():
                 where_clause = "r.entity_pk_value = %s"
@@ -270,7 +271,9 @@ class MagentoReviewServer(MCPServer):
                 "detail": "I really enjoyed this item", // str: Review detail text
                 "nickname": "JohnDoe",               // str: Reviewer nickname
                 "rating": 5,                         // int|null: Rating value (1-5) or null
-                "status": "created"                  // str: Creation status
+                "status": "created",                 // str: Creation status
+                "product_url": "http://localhost:7770/catalog/product/view/id/789",
+                "note": "Navigate to product_url to verify the review appears on the product page."
             }
             
             Or error response:
@@ -278,16 +281,19 @@ class MagentoReviewServer(MCPServer):
                 "error": "Product not found: InvalidSKU"
             }
             
+            IMPORTANT: After calling this tool, you MUST navigate to the returned product_url
+            using goto(result["product_url"]) to verify the review is visible on the product page.
             The review is automatically approved (status_id=1) and visible immediately.
             Rating is optional but recommended for better user experience.
             
         Examples:
             create_review("B006H52HBC", "Great product", "I really enjoyed this item", "JohnDoe", 5)
         """
+        product_id = str(product_id)
         try:
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
+
             # Resolve product_id to entity_id if SKU provided
             if not product_id.isdigit():
                 await cursor.execute(
@@ -334,16 +340,39 @@ class MagentoReviewServer(MCPServer):
                         option_result = await cursor.fetchone()
                         if option_result:
                             option_id = option_result["option_id"]
+                            percent = (rating_int * 100) // 5
                             await cursor.execute("""
-                                INSERT INTO rating_option_vote (option_id, review_id, value, entity_pk_value, remote_ip, remote_ip_long)
-                                VALUES (%s, %s, %s, %s, '127.0.0.1', 0)
-                            """, (option_id, review_id, rating_int, entity_id))
+                                INSERT INTO rating_option_vote
+                                    (option_id, review_id, percent, value, entity_pk_value,
+                                     rating_id, remote_ip, remote_ip_long)
+                                VALUES (%s, %s, %s, %s, %s, %s, '127.0.0.1', 0)
+                            """, (option_id, review_id, percent, rating_int, entity_id, rating_id))
             
+            # Associate review with the default store view (required for REST API visibility)
+            await cursor.execute("""
+                INSERT INTO review_store (review_id, store_id) VALUES (%s, 0), (%s, 1)
+            """, (review_id, review_id))
+
             await conn.commit()
+
+            # Fetch the canonical SEO-friendly URL for the product
+            await cursor.execute("""
+                SELECT request_path FROM url_rewrite
+                WHERE entity_type = 'product' AND entity_id = %s
+                ORDER BY store_id DESC LIMIT 1
+            """, (entity_id,))
+            url_row = await cursor.fetchone()
+            url_base = "http://localhost:7770"
+            if url_row and url_row["request_path"]:
+                product_url = f"{url_base}/{url_row['request_path']}"
+            else:
+                product_url = f"{url_base}/catalog/product/view/id/{entity_id}"
+
             await cursor.close()
             conn.close()
             
             logger.info(f"Created review {review_id} for product {product_id}")
+
             return {
                 "review_id": review_id,
                 "product_id": entity_id,
@@ -351,7 +380,9 @@ class MagentoReviewServer(MCPServer):
                 "detail": detail,
                 "nickname": nickname,
                 "rating": rating,
-                "status": "created"
+                "status": "created",
+                "product_url": product_url,
+                "note": "Navigate to product_url to verify the review appears on the product page."
             }
             
         except Exception as e:

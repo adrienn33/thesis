@@ -155,7 +155,17 @@ def execute_python_code(
         code = '\n'.join(m.strip() for m in _md_matches)
     
     logger.info("Starting REPL-style execution logic")
-    
+
+    import sys
+    from io import StringIO
+
+    global repl_output
+
+    # Capture print() output by redirecting stdout during execution
+    _old_stdout = sys.stdout
+    _captured_stdout = StringIO()
+    sys.stdout = _captured_stdout
+
     try:
         # Parse code to detect structure
         tree = ast.parse(code, mode='exec')
@@ -193,7 +203,12 @@ def execute_python_code(
                         exec(compile(last_stmt_code, '<string>', 'exec'), globals)
                         result = None
 
-                # Display non-None results
+                # Build REPL output: print() output first, then expression result
+                parts = []
+                printed = _captured_stdout.getvalue()
+                if printed.strip():
+                    parts.append(printed.rstrip())
+
                 logger.info(f"Checking if result is None: {result is None}")
                 if result is not None:
                     logger.info("Converting result to string...")
@@ -201,23 +216,38 @@ def execute_python_code(
                     logger.info(f"Result string length: {len(result_str)}")
                     if len(result_str) > 10000:
                         result_str = result_str[:10000] + f"... (truncated, total length: {len(result_str)})"
-                    logger.info("Storing REPL output...")
-                    global repl_output
-                    repl_output = f"→ {result_str}"
-                    logger.info(f"REPL auto-display stored: {result_str[:200]}")
+                    parts.append(f"→ {result_str}")
+
+                if parts:
+                    repl_output = "\n".join(parts)
+                    logger.info(f"REPL output stored ({len(repl_output)} chars)")
+                else:
+                    repl_output = None
+
             except Exception as e:
                 # Single-statement eval failed - fall back to exec of the whole (single) statement
                 logger.warning(f"REPL-style execution failed, falling back to exec: {e}")
                 exec(code, globals)
+                printed = _captured_stdout.getvalue()
+                if printed.strip():
+                    repl_output = printed.rstrip()
         else:
             # Last statement is not an expression - execute normally
             exec(code, globals)
+            printed = _captured_stdout.getvalue()
+            if printed.strip():
+                repl_output = printed.rstrip()
     except SyntaxError:
         # Fallback: if parsing fails, try exec (handles edge cases)
         exec(code, globals)
+        printed = _captured_stdout.getvalue()
+        if printed.strip():
+            repl_output = printed.rstrip()
     except Exception:
         # Re-raise execution errors so they're handled by the step() function
         raise
+    finally:
+        sys.stdout = _old_stdout
 
 
 def step(self: BrowserEnv, action: str) -> tuple:

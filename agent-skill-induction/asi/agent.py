@@ -208,13 +208,144 @@ def {func_name}({param_str}):
             available_skills = "\n\nCould not load ASI skills."
         
         if has_mcp:
-            return f"""IMPORTANT: You have access to both MCP tools (prefixed with magento_review_server_, magento_product_server_, etc.) and ASI skills (prefixed with asi_). You should STRONGLY PREFER using these skills over low-level browser actions:
-
-    1. **MCP tools** provide direct database access and are most reliable
-    2. **ASI skills** (prefixed with asi_) are reusable and tested compound actions
-    3. **Browser actions** should only be used as a last resort{available_skills}
+            return f"""IMPORTANT: You have access to MCP tools (prefixed with magento_review_server_, magento_product_server_, magento_checkout_server_, magento_wishlist_server_, magento_account_server_) and ASI skills (prefixed with asi_).{available_skills}
 
     IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names.
+
+    CRITICAL — HOW send_msg_to_user() WORKS:
+    send_msg_to_user() is the SUBMIT BUTTON. Calling it immediately ends the episode and the
+    evaluator scores whatever state the browser is in at that moment. No further actions are
+    possible after calling it.
+    - For INFORMATION tasks: call it exactly once with your final answer. That is how you submit.
+    - For NAVIGATION tasks: navigate to the correct page FIRST, then call
+      send_msg_to_user("Done") to cleanly terminate. Only call it once you are already on
+      the correct page. NEVER call it mid-task to report progress or announce a fallback plan —
+      that will terminate the episode before you have navigated anywhere.
+    - For STATE-CHANGE tasks: complete the browser action (add to cart, submit form, etc.)
+      FIRST, then call send_msg_to_user("Done") to terminate.
+
+    TASK-TYPE AWARENESS — How you complete the task depends on what is being asked:
+
+    1. INFORMATION RETRIEVAL (e.g., "What is the price range of...", "List the reviewers who...",
+       "How much did I spend on..."):
+       - Use MCP tools to query data, process results, and report via send_msg_to_user().
+       - Browser navigation is NOT required.
+
+    ANSWER QUALITY RULES — for ALL information retrieval tasks:
+
+    a) DISTILL, DO NOT DUMP: Never pass raw Python dicts, lists, or objects to send_msg_to_user().
+       Always extract the specific value the user asked for and state it as a plain sentence.
+       BAD:  send_msg_to_user("Options: " + str(item["selected_options"]))
+             produces: "Options: [{{'label': 'Color', 'value': 'Mist 16*24'}}]"
+       GOOD: send_msg_to_user("The color configuration is Mist 16*24.")
+
+    b) WHEN LOOKING UP PRODUCT CONFIGURATION (size, color, style bought in an order):
+       - Call get_order_details(order_id) to retrieve items.
+       - Each item has a `selected_options` field: a list of {{"label": ..., "value": ...}} dicts
+         representing the exact configuration the customer chose at time of purchase.
+       - Match items using SPECIFIC product-type keywords — do NOT match generic words like
+         "frame" or "art" which appear inside unrelated product names (e.g., "bed frame", "sofa frame").
+         Instead use the most distinctive noun from the task: "canvas", "poster", "picture frame",
+         "wall art print", "mouth guard", "plant", etc.
+       - Once you find the matching item, extract the answer from `selected_options`:
+           * For COLOR: find the option whose label contains "color" and take its value.
+           * For SIZE: FIRST try to find an option whose label contains "size". If none exists,
+             scan ALL option values for a dimension pattern like "16x24" and use that match:
+               import re
+               size_val = next((o["value"] for o in item["selected_options"] if "size" in o["label"].lower()), None)
+               if size_val is None:
+                   for o in item["selected_options"]:
+                       m = re.search(r"\\d+x\\d+", o["value"])
+                       if m:
+                           size_val = m.group(0)
+                           break
+               send_msg_to_user("The size configuration is " + str(size_val))
+       - Always state the extracted value as a plain sentence. Never dump the raw selected_options list.
+
+    c) PRICE RANGE QUERIES: Always state both endpoints as plain numbers with dollar signs.
+       Never dump product lists. E.g.: send_msg_to_user("Price range: $" + str(round(min_p,2)) + " to $" + str(round(max_p,2)))
+
+    2. NAVIGATION / "SHOW ME" (e.g., "Show me products under $25 in women shoes",
+       "Show me the most recent completed order", "List products from X category sorted by price"):
+       - The task requires you to NAVIGATE THE BROWSER to the correct page with the right
+         filters/sorting applied. Using MCP to look up data and sending a chat message will NOT
+         satisfy the task.
+       - You must use browser actions (click, fill, select_option) to navigate to the appropriate
+         page, apply filters, and leave the browser on that page.
+       - MCP tools may be used to look up IDs or URLs to help you navigate, but the final state
+         must be the browser on the correct page.
+       - Only call send_msg_to_user("Done") after you have finished navigating and confirmed
+         you are on the correct page. Never call it mid-task to report progress or announce
+         a fallback — that ends the episode immediately on the wrong page.
+
+       CRITICAL — USE THE "url" FIELD WHEN NAVIGATING WITH MCP:
+       search_products(), get_product_details(), and list_categories() all return a "url" field
+       containing the canonical SEO-friendly URL for that product or category.
+       - ALWAYS use goto(result["url"]) to navigate — never construct /catalog/product/view/id/...
+         or /catalog/category/view/id/... URLs yourself from entity IDs.
+       - The evaluator compares the final browser URL against the expected SEO slug. An ID-based
+         URL pointing to the same page will fail the check.
+       - Example: goto(products[0]["url"]) not goto("http://localhost:7770/catalog/product/view/id/123")
+
+       CRITICAL — "SHOW ME SOMETHING FOR [CONDITION/PROBLEM]" tasks:
+       Tasks like "show me something that could alleviate jaw bruxism" or "show me a product
+       that helps with back pain" require you to navigate all the way to an INDIVIDUAL PRODUCT
+       PAGE — not just a search results or category listing page.
+       - Search for the condition or relevant product type to find candidates.
+       - Evaluate the search results and CLICK INTO the most relevant product to open its
+         product detail page.
+       - Your final browser state must be ON the product detail page, not the search results.
+       - The evaluator checks the HTML of your last page — a product listing page will NOT
+         contain the detailed product description text needed to pass.
+
+    3. STATE-CHANGE (e.g., "Add X to my wish list", "Rate my recent purchase with 5 stars",
+       "Fill the contact us form", "Buy the highest rated product", "Add X to cart"):
+       - These tasks require VISIBLE CHANGES on the website via browser actions.
+       - For BUY / REORDER tasks (e.g., "Buy the highest rated product", "Reorder my cancelled item"):
+         Adding the item to the cart is NOT sufficient. You must complete the full checkout:
+         1. Add the product to cart (click "Add to Cart" on the product page).
+         2. After the success alert, navigate to the cart: goto("http://localhost:7770/checkout/cart/")
+         3. On the cart page, click the "Proceed to Checkout" button. Do NOT use goto("/checkout")
+            directly — Magento's checkout is a JavaScript SPA and direct URL navigation will redirect
+            back to the cart. Always use the "Proceed to Checkout" button.
+         4. On the shipping step, the address is pre-filled — click "Next" to continue.
+         5. On the shipping method step, select "Flat Rate" if prompted, then click "Next".
+         6. Click "Place Order" to submit the order.
+         7. The task is complete ONLY when you see the order confirmation page with an order number.
+         Stopping after "Added to cart" will FAIL — the evaluator checks the placed order, not the cart.
+       - For CART operations (add only, no buy): You MUST use browser actions (search, click "Add to Cart", etc.).
+         Do NOT use MCP cart tools — they are disabled.
+       - For WISHLIST operations: You MUST use browser actions. Navigate to the product page
+         and click "Add to Wish List". Do NOT use MCP wishlist write tools — they are disabled.
+         You may use MCP get_wishlist to verify the item was added after completing the browser action.
+       - For REVIEW submission: You may use MCP create_review to submit the review. The tool
+         returns a "product_url" field. After a successful create_review call, you MUST call
+         goto(result["product_url"]) to navigate to that product page before ending the task.
+         This confirms the review is visible and satisfies the evaluator.
+       - For FORMS (contact us, address change, any form): You MUST use browser actions to fill
+         the form fields. Whether you submit depends on the task wording:
+           * If the task says "Don't submit", "Don't submit yet", "Draft", or "I will check" —
+             fill all fields with the correct content, then STOP. Do NOT click Submit/Send.
+             The evaluator checks the filled form HTML, not a confirmation page.
+           * If the task says "Fill", "Submit", "Send", or has no qualifier — fill all fields
+             and then click the Submit/Send button to complete the action.
+         CRITICAL: Submitting a "Don't submit" form will CLEAR all field contents in Magento,
+         causing the evaluator to see an empty form and score 0. Leave the form filled but unsubmitted.
+       - MCP tools may be used as a read/lookup layer for any state-change task (e.g., use
+         list_orders to find the order number before filling a refund form).
+
+    MCP FALLBACK RULE — If an MCP tool returns empty results, switch to browser:
+    MCP tools query a structured database and can miss products or data due to naming mismatches,
+    missing records, or narrow query parameters. If an MCP tool returns an empty list or no
+    matching results, do NOT report failure or stop. Instead:
+    - Immediately fall back to browser-based navigation to complete the task.
+    - Use the search bar, category menus, or filters to find the data manually.
+    - Treat an empty MCP result as a signal to try a different approach, not as a final answer.
+    - Do NOT call send_msg_to_user() to announce the fallback — just execute the browser actions.
+      send_msg_to_user() is the submit button; calling it before you finish navigating ends the
+      episode immediately on the wrong page.
+    Example: if magento_product_server_search_products(name="X") returns [], navigate to the
+    store search and type "X" in the search bar instead.
 
     IMPORTANT - Semantic review search: When searching reviews for a topic (e.g. "small size", "battery life", "poor quality"), do NOT search for only the literal phrase. Reviewers express the same idea in many ways. You MUST expand the search to include synonyms, related phrases, and common alternative wordings. For example:
     - "small" → ["small", "tiny", "compact", "narrow", "tight", "little", "miniature", "slim", "thin", "petite"]
@@ -222,9 +353,28 @@ def {func_name}({param_str}):
     - "poor quality" → ["poor quality", "cheap", "flimsy", "low quality", "poorly made", "bad quality", "disappointing"]
     Always pass a broad list of synonyms/related terms as the keywords argument to ensure no relevant reviews are missed."""
         else:
-            return f"""IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills. You should STRONGLY PREFER using these ASI skills over low-level browser actions. These skills are more efficient than browser interactions.{available_skills}
+            return f"""IMPORTANT: You have access to ASI skills (prefixed with asi_) that are reusable, tested browser-based skills.{available_skills}
 
     IMPORTANT: Only use ASI skills that are listed above. Do not make up or guess skill names. If no suitable ASI skill exists, use browser actions.
+
+    TASK-TYPE AWARENESS — How you complete the task depends on what is being asked:
+
+    1. INFORMATION RETRIEVAL (e.g., "What is the price range of...", "List the reviewers who..."):
+       - ASI skills are preferred for looking up and reporting data.
+       - Use send_msg_to_user() to report the result.
+
+    2. NAVIGATION / "SHOW ME" (e.g., "Show me products under $25", "Navigate to category X"):
+       - Browser actions are required. You must navigate the browser to the correct page.
+       - ASI skills may assist with lookups, but cannot replace browser navigation.
+
+       CRITICAL — "SHOW ME SOMETHING FOR [CONDITION/PROBLEM]" tasks:
+       Tasks like "show me something that could alleviate jaw bruxism" require navigating to
+       an INDIVIDUAL PRODUCT PAGE, not just a search results page. Search for candidates, then
+       click into the most relevant product so the browser ends on the product detail page.
+
+    3. STATE-CHANGE (e.g., "Add to cart", "Submit a form", "Update account info"):
+       - Browser actions are required for all state-change tasks.
+       - ASI skills may assist with finding IDs or URLs, but the final action must be browser-based.
 
     IMPORTANT - Semantic review search: When searching reviews for a topic (e.g. "small size", "battery life", "poor quality"), do NOT search for only the literal phrase. Reviewers express the same idea in many ways. You MUST expand the search to include synonyms, related phrases, and common alternative wordings. Always pass a broad list of synonyms/related terms as the keywords argument to ensure no relevant reviews are missed."""
 
