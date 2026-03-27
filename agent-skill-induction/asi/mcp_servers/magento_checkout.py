@@ -15,6 +15,28 @@ import aiomysql
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+COUNTRY_NAMES = {
+    "US": "United States", "CA": "Canada", "GB": "United Kingdom",
+    "AU": "Australia", "DE": "Germany", "FR": "France", "JP": "Japan",
+    "CN": "China", "IN": "India", "BR": "Brazil", "MX": "Mexico",
+    "IT": "Italy", "ES": "Spain", "KR": "South Korea", "NL": "Netherlands",
+    "SE": "Sweden", "NO": "Norway", "DK": "Denmark", "FI": "Finland",
+    "PL": "Poland", "AT": "Austria", "CH": "Switzerland", "BE": "Belgium",
+    "IE": "Ireland", "NZ": "New Zealand", "SG": "Singapore", "HK": "Hong Kong",
+    "TW": "Taiwan", "IL": "Israel", "AE": "United Arab Emirates",
+    "SA": "Saudi Arabia", "ZA": "South Africa", "RU": "Russia",
+    "TR": "Turkey", "TH": "Thailand", "PH": "Philippines", "MY": "Malaysia",
+    "ID": "Indonesia", "VN": "Vietnam", "CL": "Chile", "CO": "Colombia",
+    "AR": "Argentina", "PE": "Peru", "PT": "Portugal", "CZ": "Czech Republic",
+    "RO": "Romania", "HU": "Hungary", "GR": "Greece",
+}
+
+def _expand_country(code):
+    """Convert ISO country code to full name, fallback to code itself."""
+    if not code:
+        return None
+    return COUNTRY_NAMES.get(code, code)
+
 class MCPServer:
     """Simple MCP server implementation with stdio transport"""
     
@@ -385,7 +407,7 @@ class MagentoCheckoutServer(MCPServer):
                         "city": row["shipping_city"],
                         "region": row["shipping_region"],
                         "postcode": row["shipping_postcode"],
-                        "country": row["shipping_country"]
+                        "country": _expand_country(row["shipping_country"])
                     } if row["shipping_street"] else None
                 })
             
@@ -623,7 +645,7 @@ class MagentoCheckoutServer(MCPServer):
                         "city": shipping_address["city"] if shipping_address else None,
                         "region": shipping_address["region"] if shipping_address else None,
                         "postcode": shipping_address["postcode"] if shipping_address else None,
-                        "country": shipping_address["country_id"] if shipping_address else None,
+                        "country": _expand_country(shipping_address["country_id"]) if shipping_address else None,
                         "telephone": shipping_address["telephone"] if shipping_address else None
                     } if shipping_address else None
                 },
@@ -635,7 +657,7 @@ class MagentoCheckoutServer(MCPServer):
                     "city": billing_address["city"] if billing_address else None,
                     "region": billing_address["region"] if billing_address else None,
                     "postcode": billing_address["postcode"] if billing_address else None,
-                    "country": billing_address["country_id"] if billing_address else None,
+                    "country": _expand_country(billing_address["country_id"]) if billing_address else None,
                     "telephone": billing_address["telephone"] if billing_address else None
                 } if billing_address else None,
                 "payment": {
