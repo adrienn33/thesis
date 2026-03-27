@@ -1,38 +1,8 @@
-## Task: Get the order number of my most recent {{status}} order 
-### Example 1 (234): Get the order number of my most recent on hold order 
-Clicked the "View All" link to access all orders and locate the most recent "on hold" order.
+## Task: Change the delivery address for my most recent order to {{address}}.
+### Example 1 (798): Change the delivery address for my most recent order to 77 Massachusetts Ave, Cambridge, MA.
+Clicked "View Order" for order #000000170 (dated 5/17/23) to view the details of the most recent order.
 ```
-click('1492')
+click("1746")
 ```
-Navigated to the next page of the orders list to search for an order with "On Hold" status.
-```
-asi_navigate_to_next_page("1580")
-```
-Navigated to page 1 of the orders list to check for "On Hold" status orders.
-```
-click('1564')
-```
-Navigated to page 2 of the orders list to search for orders with "On Hold" status, as page 1 contained only Canceled, Pending, and Complete orders.
-```
-asi_navigate_to_next_page("1580")
-```
-Navigated to page 3 to search for orders with "On Hold" status.
-```
-click('1576')
-```
-Navigated to page 4 to search for orders with "On Hold" status.
-```
-click('1580')
-```
-Navigating back to page 1 of the orders list to verify the status of orders on the first page, particularly to check for "Pending" or "On Hold" statuses that may have been missed.
-```
-click('1535')
-```
-Navigated to page 2 of the orders list to double-check for "On Hold" status orders that may have been missed in the initial review.
-```
-asi_navigate_to_next_page("1580")
-```
-Completed exhaustive review of all 37 orders across 4 pages and determined the task is infeasible - no "On Hold" orders exist in the system. Order statuses found were limited to: Canceled, Pending, and Complete.
-```
-report_infeasible("After checking all 37 orders across all 4 pages of the order history, there are no orders with 'On Hold' status. The orders only have statuses of Complete, Canceled, and Pending.")
-```
+Unable to change the delivery address for Order #000000170 because the order is canceled and no address editing functionality is available on the order details page.
+```report_infeasible("The most recent order (#000000170) is already canceled, and there is no option to change the delivery address for a canceled order. Additionally, Magento's customer-facing interface does not provide functionality to edit the shipping address of existing orders.")```
