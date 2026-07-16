@@ -1,0 +1,5 @@
+Condition,Total Tokens,Successes,Tokens/Success,Mean Tokens (all),Mean Tokens (success only)
+Vanilla,"67,368,854",96,"701,759","360,261","240,869"
+Vanilla+ASI,"62,922,468",101,"622,995","336,484","225,472"
+MCP,"37,902,384",113,"335,419","202,687","131,054"
+MCP+ASI,"31,481,737",105,"299,826","168,352","115,339"

@@ -1,0 +1,6 @@
+Comparison,MCP Wins,Vanilla Wins,Ties,MCP+ASI Wins,Vanilla+ASI Wins
+MCP vs Vanilla,22.0,5.0,160,,
+MCP+ASI vs Vanilla+ASI,,,155,18.0,14.0
+MCP+ASI vs Vanilla,,12.0,154,21.0,
+MCP+ASI vs MCP,12.0,,171,4.0,
+Vanilla+ASI vs Vanilla,,6.0,170,,11.0

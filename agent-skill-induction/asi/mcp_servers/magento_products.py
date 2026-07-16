@@ -7,6 +7,8 @@ import asyncio
 import json
 import sys
 import logging
+import urllib.request
+import urllib.error
 from typing import List, Dict, Any, Optional
 import aiomysql
 
@@ -155,29 +157,138 @@ class MagentoProductServer(MCPServer):
     async def _get_db_connection(self):
         """Get database connection"""
         return await aiomysql.connect(**self.db_config)
-    
-    async def search_products(self, sku: Optional[str] = None, name: Optional[str] = None, 
+
+    ES_INDEX = "magento2_product_1_v4"
+    ES_URL = f"http://localhost:9200/{ES_INDEX}/_search"
+
+    async def _es_search(self, body: dict, size: int = 500) -> dict:
+        """Execute an Elasticsearch query against the Magento product index."""
+        url = self.ES_URL
+        payload = json.dumps({**body, "size": size}).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError, Exception) as e:
+            logger.error(f"Elasticsearch query failed: {e}")
+            return {"hits": {"hits": [], "total": {"value": 0}}}
+
+    async def _build_es_query(self, sku=None, name=None, description=None,
+                               category=None, min_price=None, max_price=None) -> dict:
+        """Build an Elasticsearch bool query from search parameters."""
+        must = []
+        filter_clauses = [{"term": {"status": 1}}]
+
+        # Text search: name and/or description
+        if name and description:
+            must.append({
+                "multi_match": {
+                    "query": f"{name} {description}",
+                    "fields": ["name^3", "description", "short_description"],
+                    "type": "best_fields",
+                    "fuzziness": "AUTO"
+                }
+            })
+        elif name:
+            must.append({
+                "match": {
+                    "name": {
+                        "query": name,
+                        "operator": "and"
+                    }
+                }
+            })
+        elif description:
+            must.append({
+                "multi_match": {
+                    "query": description,
+                    "fields": ["description", "short_description", "name"],
+                    "type": "best_fields",
+                    "fuzziness": "AUTO"
+                }
+            })
+
+        # SKU search
+        if sku:
+            must.append({"match": {"sku": str(sku)}})
+
+        # Category filter
+        if category:
+            category = str(category)
+            if category.isdigit():
+                filter_clauses.append({"term": {"category_ids": int(category)}})
+            else:
+                cat_ids = await self._resolve_category_ids(category)
+                if cat_ids:
+                    filter_clauses.append({"terms": {"category_ids": cat_ids}})
+
+        # Price range filter
+        price_range = {}
+        if min_price:
+            price_range["gte"] = float(str(min_price))
+        if max_price:
+            price_range["lte"] = float(str(max_price))
+        if price_range:
+            filter_clauses.append({"range": {"price_0_1": price_range}})
+
+        # If no text search terms provided, match all (filtered)
+        if not must:
+            return {"query": {"bool": {"filter": filter_clauses}}}
+
+        return {
+            "query": {
+                "bool": {
+                    "must": must,
+                    "filter": filter_clauses
+                }
+            }
+        }
+
+    async def _resolve_category_ids(self, category_name: str) -> List[int]:
+        """Resolve a category name to category IDs via SQL."""
+        try:
+            conn = await self._get_db_connection()
+            cursor = await conn.cursor(aiomysql.DictCursor)
+            await cursor.execute("""
+                SELECT ccev.entity_id
+                FROM catalog_category_entity_varchar ccev
+                WHERE ccev.value LIKE %s
+                  AND ccev.attribute_id = (
+                      SELECT attribute_id FROM eav_attribute
+                      WHERE attribute_code = 'name' AND entity_type_id = 3
+                  )
+            """, (f"%{category_name}%",))
+            rows = await cursor.fetchall()
+            await cursor.close()
+            conn.close()
+            return [row["entity_id"] for row in rows]
+        except Exception as e:
+            logger.error(f"Error resolving category '{category_name}': {e}")
+            return []
+
+    async def search_products(self, sku: Optional[str] = None, name: Optional[str] = None,
                              description: Optional[str] = None, category: Optional[str] = None,
                              min_price: Optional[str] = None, max_price: Optional[str] = None,
                              limit: str = "500") -> List[Dict]:
         """Search for products by SKU, product name, description, category, and/or price range.
 
-        WARNING: All text parameters (name, description) use FUZZY/PARTIAL matching via SQL LIKE.
-        Results may include products that merely mention the search term in their name or description,
-        not just products from that brand or category. You MUST verify each result is actually
-        relevant — e.g. when searching for brand-specific products, filter results to only those
-        whose name starts with or prominently features the brand name before computing aggregates
-        like price range, count, or average.
+        Uses Elasticsearch for text matching with tokenization, TF-IDF ranking, and fuzzy
+        matching — the same search engine that powers the Magento storefront.
 
         Args:
-            sku: Product SKU (exact or partial match)
-            name: Product name (partial match, fuzzy — see warning above)
-            description: Product description text (partial match, fuzzy — see warning above)
+            sku: Product SKU (tokenized match via ES)
+            name: Product name (searches name field only with fuzzy matching)
+            description: Product description text (searches description + short_description + name; use this for keyword/semantic queries beyond the product name)
             category: Category name or ID
             min_price: Minimum price
             max_price: Maximum price
             limit: Maximum number of results (default 500)
-            
+
         Returns:
             List of product dictionaries with this structure:
             [
@@ -199,20 +310,35 @@ class MagentoProductServer(MCPServer):
 
             Use this for finding products by search criteria. For detailed product info including
             configurable options (colors, sizes), use get_product_details() with the entity_id.
-            
+
         Examples:
             search_products(sku="B006H52HBC")
             search_products(name="headphones", min_price="20", max_price="100")
             search_products(category="Electronics")
         """
         try:
+            limit_value = int(str(limit)) if limit is not None else 500
+
+            # Step 1-2: Build and execute ES query
+            es_body = await self._build_es_query(sku, name, description,
+                                                  category, min_price, max_price)
+            es_result = await self._es_search(es_body, size=limit_value)
+
+            hits = es_result.get("hits", {}).get("hits", [])
+            if not hits:
+                logger.info("ES query returned 0 hits")
+                return []
+
+            # Step 3: Extract entity_ids in relevance order
+            entity_ids = [int(hit["_id"]) for hit in hits]
+            logger.info(f"ES returned {len(entity_ids)} hits")
+
+            # Step 4: Fetch full product details via SQL
             conn = await self._get_db_connection()
             cursor = await conn.cursor(aiomysql.DictCursor)
-            
-            conditions = []
-            params = []
-            
-            base_query = """
+
+            placeholders = ",".join(["%s"] * len(entity_ids))
+            sql = f"""
                 SELECT DISTINCT
                     cpe.entity_id,
                     cpe.sku,
@@ -223,8 +349,8 @@ class MagentoProductServer(MCPServer):
                     csi.is_in_stock,
                     ur.request_path as url_path
                 FROM catalog_product_entity cpe
-                LEFT JOIN catalog_product_entity_varchar cpev_name 
-                    ON cpe.entity_id = cpev_name.entity_id 
+                LEFT JOIN catalog_product_entity_varchar cpev_name
+                    ON cpe.entity_id = cpev_name.entity_id
                     AND cpev_name.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 4)
                 LEFT JOIN catalog_product_entity_text cpev_desc
                     ON cpe.entity_id = cpev_desc.entity_id
@@ -239,76 +365,37 @@ class MagentoProductServer(MCPServer):
                     AND ur.redirect_type = 0
                     AND ur.store_id = 1
                     AND ur.metadata IS NULL
+                WHERE cpe.entity_id IN ({placeholders})
             """
-            
-            if sku:
-                conditions.append("cpe.sku LIKE %s")
-                params.append(f"%{sku}%")
-            
-            if name:
-                conditions.append("cpev_name.value LIKE %s")
-                params.append(f"%{name}%")
-            
-            if description:
-                conditions.append("cpev_desc.value LIKE %s")
-                params.append(f"%{description}%")
-            
-            if category:
-                base_query += """
-                    LEFT JOIN catalog_category_product ccp ON cpe.entity_id = ccp.product_id
-                    LEFT JOIN catalog_category_entity cce ON ccp.category_id = cce.entity_id
-                    LEFT JOIN catalog_category_entity_varchar ccev 
-                        ON cce.entity_id = ccev.entity_id
-                        AND ccev.attribute_id = (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 3)
-                """
-                category = str(category)
-                if category.isdigit():
-                    conditions.append("cce.entity_id = %s")
-                    params.append(int(category))
-                else:
-                    conditions.append("ccev.value LIKE %s")
-                    params.append(f"%{category}%")
-            
-            if min_price:
-                conditions.append("cpd_price.value >= %s")
-                params.append(float(str(min_price)))
+            await cursor.execute(sql, tuple(entity_ids))
+            rows = await cursor.fetchall()
+            await cursor.close()
+            conn.close()
 
-            if max_price:
-                conditions.append("cpd_price.value <= %s")
-                params.append(float(str(max_price)))
-            
-            if conditions:
-                base_query += " WHERE " + " AND ".join(conditions)
-            
-            limit_value = int(str(limit)) if limit is not None else 500
-            base_query += f" LIMIT {limit_value}"
-            
-            logger.info(f"Executing query with LIMIT {limit_value}, limit param was: {limit}")
-            await cursor.execute(base_query, tuple(params))
-            results = await cursor.fetchall()
-            logger.info(f"Query returned {len(results)} results")
-            
+            # Step 5: Index by entity_id for O(1) lookup, preserve ES order
+            row_map = {row["entity_id"]: row for row in rows}
+
             base_url = "http://localhost:7770/"
             products = []
-            for row in results:
+            for eid in entity_ids:
+                row = row_map.get(eid)
+                if not row:
+                    continue
                 url_path = row.get("url_path")
                 products.append({
                     "entity_id": row["entity_id"],
                     "sku": row["sku"],
                     "name": row["name"],
-                    "description": row["description"][:200] + "..." if row["description"] and len(row["description"]) > 200 else row["description"],
+                    "description": (row["description"][:200] + "...") if row["description"] and len(row["description"]) > 200 else row["description"],
                     "price": float(row["price"]) if row["price"] else None,
                     "qty": float(row["qty"]) if row["qty"] else 0,
                     "is_in_stock": bool(row["is_in_stock"]),
                     "url": (base_url + url_path) if url_path else f"{base_url}catalog/product/view/id/{row['entity_id']}"
                 })
-            
-            await cursor.close()
-            conn.close()
-            
+
             logger.info(f"Found {len(products)} products matching search criteria")
             return products
-            
+
         except Exception as e:
             logger.error(f"Error searching products: {e}")
             return []
@@ -435,6 +522,14 @@ class MagentoProductServer(MCPServer):
                 conn.close()
                 return {"error": f"Product not found: {product_id}"}
             
+            # Fetch category IDs
+            await cursor.execute(
+                "SELECT category_id FROM catalog_category_product WHERE product_id = %s",
+                (result["entity_id"],)
+            )
+            cat_rows = await cursor.fetchall()
+            category_ids = [row["category_id"] for row in cat_rows]
+
             base_url = "http://localhost:7770/"
             url_path = result.get("url_path")
             product = {
@@ -450,6 +545,7 @@ class MagentoProductServer(MCPServer):
                 },
                 "image": result["image"],
                 "url": (base_url + url_path) if url_path else f"{base_url}catalog/product/view/id/{result['entity_id']}",
+                "category_ids": category_ids,
                 "options": []
             }
             

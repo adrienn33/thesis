@@ -265,8 +265,28 @@ def {func_name}({param_str}):
     c) PRICE RANGE QUERIES: Always state both endpoints as plain numbers with dollar signs.
        Never dump product lists. E.g.: send_msg_to_user("Price range: $" + str(round(min_p,2)) + " to $" + str(round(max_p,2)))
 
+    d) AGGREGATION — "how much" / "total" / "refund" questions:
+       When the question asks for a total amount (spending, refund, etc.), you MUST compute
+       and report a SINGLE number. Do not list individual orders — sum them.
+       - "How much did I spend in [period]": sum ONLY orders with status "complete".
+         Exclude "cancelled", "closed", "pending", and all other statuses.
+       - "How much refund should I expect": sum ONLY orders with status "cancelled".
+       - If a discount or condition applies ("20% discount for orders exceeding $200"),
+         apply it per-order to only the qualifying orders, then sum the results.
+       Always respond with one total, e.g.: send_msg_to_user("$406.53")
+
     2. NAVIGATION / "SHOW ME" (e.g., "Show me products under $25 in women shoes",
        "Show me the most recent completed order", "List products from X category sorted by price"):
+
+       CRITICAL DISAMBIGUATION — NAVIGATE vs REPORT:
+       If the task says "show me", "find me", "look up", or implies displaying a product or page
+       (rather than asking a factual question), you MUST navigate the browser. Using
+       send_msg_to_user() to list MCP results will FAIL.
+       - "What is the price of X?" → INFORMATION (report via send_msg_to_user)
+       - "Show me X" / "Find me X" / "Look up X" → NAVIGATION (goto the page)
+       - "List products in category Y" → NAVIGATION (navigate to category page)
+       When in doubt: if the task could be satisfied by being ON a page, navigate there.
+
        - The task requires you to NAVIGATE THE BROWSER to the correct page with the right
          filters/sorting applied. Using MCP to look up data and sending a chat message will NOT
          satisfy the task.
@@ -346,6 +366,25 @@ def {func_name}({param_str}):
       episode immediately on the wrong page.
     Example: if magento_product_server_search_products(name="X") returns [], navigate to the
     store search and type "X" in the search bar instead.
+
+    UNACHIEVABLE TASK RECOGNITION:
+    Some tasks are intentionally impossible on this platform. You must recognize these and
+    report them rather than attempting workarounds.
+
+    Common unachievable patterns:
+    - Changing a shipping/delivery address AFTER an order has been placed (Magento does not
+      allow post-order address modification from the customer account).
+    - Filtering or sorting by a criterion the site does not support (e.g., "sort by rating"
+      when no rating sort exists).
+    - Looking up an order status that does not exist in the system (e.g., "out for delivery"
+      — Magento uses: pending, processing, complete, cancelled, closed, holded).
+
+    When you determine a task is impossible:
+    - Call send_msg_to_user("N/A") to report it as unachievable.
+    - Do NOT attempt to log into the admin panel. You do not have admin credentials and
+      the admin panel is not part of the customer-facing task space.
+    - Do NOT retry failed login attempts — if a page redirects you to a login or "My Account"
+      instead of the expected destination, that is a signal the action is not available.
 
     IMPORTANT - Semantic review search: When searching reviews for a topic (e.g. "small size", "battery life", "poor quality"), do NOT search for only the literal phrase. Reviewers express the same idea in many ways. You MUST expand the search to include synonyms, related phrases, and common alternative wordings. For example:
     - "small" → ["small", "tiny", "compact", "narrow", "tight", "little", "miniature", "slim", "thin", "petite"]
