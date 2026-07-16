@@ -1,0 +1,32 @@
+Category,Count,Percentage
+Form Content Mismatch,11,11.8
+Agent Navigation Failure,10,10.8
+Agent reasoning failure,7,7.5
+Ground truth / reference answer error,5,5.4
+Wishlist pagination / evaluation issue,5,5.4
+Unachievable task not recognized,5,5.4
+MCP Data Gaps,4,4.3
+MCP Search Under-matching,4,4.3
+URL Mismatch,4,4.3
+MCP Write Tool — Incomplete DB Write,4,4.3
+Wrong item categorization / amount calculation,3,3.2
+Ground Truth / Reference Answer Error,3,3.2
+MCP Search Over-Matching,3,3.2
+Strict benchmark eval,3,3.2
+Wrong order count/amount (MCP data is correct),2,2.2
+Incomplete product search results,2,2.2
+Agent Instruction Mismatch,2,2.2
+Form field fill failure + triple_click undefined,2,2.2
+"MCP makes ""unachievable"" task achievable",2,2.2
+Never navigated to product page (program_html eval),1,1.1
+"Correct answer, wrong token format",1,1.1
+Answer buried in multiple messages,1,1.1
+No browser fallback when MCP returned 0 results,1,1.1
+Wrong product selected,1,1.1
+Agent didn’t navigate to product page,1,1.1
+agent reasoning failure + ground truth error,1,1.1
+Logic/Semantic Interpretation,1,1.1
+Incomplete product coverage + keyword matching,1,1.1
+Evaluator Bug — |OR| not handled in string_match,1,1.1
+BrowserGym error,1,1.1
+MCP Write Tool — Incomplete DB Write/Wrong Item Categorization,1,1.1

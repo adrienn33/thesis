@@ -1,0 +1,17 @@
+Task ID,Category,Pre-ES,Post-ES,Flipped
+124,Incomplete product search results,Fail,Fail,
+125,Incomplete product search results,Fail,Fail,
+141,Wrong item categorization / amount calculation,Fail,Fail,
+142,Wrong item categorization / amount calculation,Fail,Fail,
+143,Wrong item categorization / amount calculation,Fail,Fail,
+158,No browser fallback when MCP returned 0 results,Pass,Pass,
+160,Wrong product selected,Fail,Pass,Yes
+226,MCP Search Over-Matching,Fail,Fail,
+229,MCP Search Over-Matching,Fail,Pass,Yes
+238,MCP Search Over-Matching,Fail,Pass,Yes
+279,MCP Search Under-matching,Fail,Fail,
+282,MCP Search Under-matching,Fail,Fail,
+284,MCP Search Under-matching,Fail,Fail,
+302,Agent reasoning failure,Fail,Pass,Yes
+376,Logic/Semantic Interpretation,Fail,Fail,
+385,Incomplete product coverage + keyword matching,Fail,Fail,

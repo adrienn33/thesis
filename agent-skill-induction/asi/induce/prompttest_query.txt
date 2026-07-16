@@ -1,8 +1,6 @@
 ## Task: Change the delivery address for my most recent order to {{address}}.
 ### Example 1 (798): Change the delivery address for my most recent order to 77 Massachusetts Ave, Cambridge, MA.
-Clicked "View Order" for order #000000170 (dated 5/17/23) to view the details of the most recent order.
+Reported the task as infeasible due to Magento's system limitations - delivery addresses for placed orders cannot be changed from the customer side.
 ```
-click("1746")
+report_infeasible("Magento does not allow customers to change the delivery address after an order has been placed. Post-order address modification is not available from the customer account interface.")
 ```
-Unable to change the delivery address for Order #000000170 because the order is canceled and no address editing functionality is available on the order details page.
-```report_infeasible("The most recent order (#000000170) is already canceled, and there is no option to change the delivery address for a canceled order. Additionally, Magento's customer-facing interface does not provide functionality to edit the shipping address of existing orders.")```

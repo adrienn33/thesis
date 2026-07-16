@@ -1,0 +1,170 @@
+{
+  "mcnemar": [
+    {
+      "comparison": "Vanilla vs MCP",
+      "statistic": 10.703703703703704,
+      "p_value": 0.0015137195587158203,
+      "MCP_wins": 22,
+      "Vanilla_wins": 5,
+      "n_discordant": 27,
+      "n": 187
+    },
+    {
+      "comparison": "Vanilla vs Vanilla+ASI",
+      "statistic": 1.4705882352941178,
+      "p_value": 0.332305908203125,
+      "Vanilla+ASI_wins": 11,
+      "Vanilla_wins": 6,
+      "n_discordant": 17,
+      "n": 187
+    },
+    {
+      "comparison": "MCP vs MCP+ASI",
+      "statistic": 4.0,
+      "p_value": 0.076812744140625,
+      "MCP+ASI_wins": 4,
+      "MCP_wins": 12,
+      "n_discordant": 16,
+      "n": 187
+    },
+    {
+      "comparison": "Vanilla vs MCP+ASI",
+      "statistic": 2.4545454545454546,
+      "p_value": 0.16275565745308995,
+      "MCP+ASI_wins": 21,
+      "Vanilla_wins": 12,
+      "n_discordant": 33,
+      "n": 187
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP+ASI",
+      "statistic": 0.5,
+      "p_value": 0.5966148958541453,
+      "MCP+ASI_wins": 18,
+      "Vanilla+ASI_wins": 14,
+      "n_discordant": 32,
+      "n": 187
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP",
+      "statistic": 5.142857142857143,
+      "p_value": 0.03569813817739487,
+      "MCP_wins": 20,
+      "Vanilla+ASI_wins": 8,
+      "n_discordant": 28,
+      "n": 187
+    }
+  ],
+  "wilcoxon_tokens": [
+    {
+      "comparison": "Vanilla vs MCP",
+      "metric": "total_input_tokens",
+      "statistic": 2153.5,
+      "p_value": 5.694004121398009e-19,
+      "mean_diff": -157574.70588235295,
+      "median_diff": -109997.0,
+      "n": 186
+    },
+    {
+      "comparison": "Vanilla vs Vanilla+ASI",
+      "metric": "total_input_tokens",
+      "statistic": 7939.5,
+      "p_value": 0.25171838765160937,
+      "mean_diff": -23777.46524064171,
+      "median_diff": 16.0,
+      "n": 187
+    },
+    {
+      "comparison": "MCP vs MCP+ASI",
+      "metric": "total_input_tokens",
+      "statistic": 5716.0,
+      "p_value": 7.56165549297568e-05,
+      "mean_diff": -34335.010695187164,
+      "median_diff": -15.0,
+      "n": 185
+    },
+    {
+      "comparison": "Vanilla vs MCP+ASI",
+      "metric": "total_input_tokens",
+      "statistic": 1609.5,
+      "p_value": 5.538959724234593e-22,
+      "mean_diff": -191909.7165775401,
+      "median_diff": -136007.0,
+      "n": 186
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP+ASI",
+      "metric": "total_input_tokens",
+      "statistic": 2711.5,
+      "p_value": 2.4028292836923247e-16,
+      "mean_diff": -168132.2513368984,
+      "median_diff": -129199.0,
+      "n": 187
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP",
+      "metric": "total_input_tokens",
+      "statistic": 3021.5,
+      "p_value": 1.1884825572906406e-14,
+      "mean_diff": -133797.24064171122,
+      "median_diff": -122484.0,
+      "n": 186
+    }
+  ],
+  "wilcoxon_steps": [
+    {
+      "comparison": "Vanilla vs MCP",
+      "metric": "steps",
+      "statistic": 226.0,
+      "p_value": 7.070478095671367e-20,
+      "mean_diff": -2.46524064171123,
+      "median_diff": -1.0,
+      "n": 124
+    },
+    {
+      "comparison": "Vanilla vs Vanilla+ASI",
+      "metric": "steps",
+      "statistic": 1516.5,
+      "p_value": 0.013396780124200978,
+      "mean_diff": -0.39037433155080214,
+      "median_diff": 0.0,
+      "n": 92
+    },
+    {
+      "comparison": "MCP vs MCP+ASI",
+      "metric": "steps",
+      "statistic": 799.5,
+      "p_value": 0.00015069090370071692,
+      "mean_diff": -0.40641711229946526,
+      "median_diff": 0.0,
+      "n": 78
+    },
+    {
+      "comparison": "Vanilla vs MCP+ASI",
+      "metric": "steps",
+      "statistic": 386.5,
+      "p_value": 3.487825215776572e-21,
+      "mean_diff": -2.871657754010695,
+      "median_diff": -2.0,
+      "n": 139
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP+ASI",
+      "metric": "steps",
+      "statistic": 712.5,
+      "p_value": 2.160606698573456e-17,
+      "mean_diff": -2.481283422459893,
+      "median_diff": -2.0,
+      "n": 134
+    },
+    {
+      "comparison": "Vanilla+ASI vs MCP",
+      "metric": "steps",
+      "statistic": 1171.5,
+      "p_value": 1.7908703586414336e-16,
+      "mean_diff": -2.0748663101604277,
+      "median_diff": -1.0,
+      "n": 146
+    }
+  ]
+}
